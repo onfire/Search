@@ -1,7 +1,7 @@
 {
-	"name": "jaedb/iconfield",
+	"name": "jaedb/search",
     "type": "silverstripe-vendormodule",
-	"description": "Icon field for SilverStripe",
+	"description": "SilverStripe search engine",
 	"homepage": "http://jamesbarnsley.co.nz",
 	"keywords": ["silverstripe"],
 	"license": "BSD-3-Clause",
@@ -13,13 +13,8 @@
 		}
 	],
 	"support": {
-		"issues": "http://github.com/jaedb/iconfield/issues"
+		"issues": "http://github.com/jaedb/search/issues"
 	},
-    "extra": {
-        "expose": [
-            "css"
-        ]
-    },
 	"require": {
 		"silverstripe/cms": "^4",
 		"silverstripe/framework": "^4",
