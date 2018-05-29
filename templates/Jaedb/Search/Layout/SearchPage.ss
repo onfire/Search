@@ -1,36 +1,38 @@
 
 $SearchForm
 
-<div class="search-summary">
-    <p>You searched <% if Types %><% loop Types %><% if not First %><% if Last %> and <% else %>, <% end_if %><% end_if %><em>$Name</em><% end_loop %><% else %>everything<% end_if %> for <em>"$Query"</em> and got $Results.Count result<% if Results.Count > 1 %>s<% end_if %></p>
-</div>
+<% if Query %>
 
-<% if Results %>
+	<div class="search-summary">
+	    <p>You searched <% if Types %><% loop Types %><% if not First %><% if Last %> and <% else %>, <% end_if %><% end_if %><em>$Name</em><% end_loop %><% else %>everything<% end_if %> for <em>"$Query"</em> and got $Results.Count result<% if not Results %>s<% else_if Results.Count > 1 %>s<% end_if %></p>
+	</div>
 
-    <% loop Results %>
-		<% cached $ClassName, $ID, $LastEdited %>
-			<article class="search-result">
-	            <h2 class="title">
-	            	<a href="$Link">$Title</a>
-	            </h2>    
-	            <div class="details">	                
-	                <div class="edited">
-	                    Last updated $LastEdited.Format(j F), $LastEdited.Format(Y)
-	                </div>
-	            </div>
-	            <div class="preview">
-	                <p>
-	                	<% if Description %>$Description<% else_if Content %>$Content.LimitCharacters(250)<% end_if %>
-	                </p>
-	            </div>
-			</article>    
-		<% end_cached %>
-    <% end_loop %>
+	<% if Results %>
 
-    <% with Results %>
-        <% include Pagination %>
-    <% end_with %>
+	    <% loop Results %>
+			<% cached $ClassName, $ID, $LastEdited %>
+				<article class="search-result">
+		            <h2 class="title">
+		            	<a href="$Link">$Title</a>
+		            </h2>    
+		            <div class="details">	                
+		                <div class="edited">
+		                    Last updated $LastEdited.Format(j F), $LastEdited.Format(Y)
+		                </div>
+		            </div>
+		            <div class="preview">
+		                <p>
+		                	<% if Description %>$Description<% else_if Content %>$Content.ContextSummary(250, $Top.Query)<% end_if %>
+		                </p>
+		            </div>
+				</article>    
+			<% end_cached %>
+	    <% end_loop %>
 
-<% else %>
-	<p class="grey-text">No results</p>
+	    <% with Results %>
+	        <% include Pagination %>
+	    <% end_with %>
+
+	<% end_if %>
+
 <% end_if %>

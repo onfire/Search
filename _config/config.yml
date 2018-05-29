@@ -1,0 +1,31 @@
+---
+Name: search
+---
+Jaedb\Search\SearchPageController:
+  types:
+    - Name: 'Documents'
+      Label: 'Documents'
+      ClassName: 'SilverStripe\Assets\File'
+      Table: 'File_Live'
+      Columns: ['Title','Description','Name']
+    - Name: 'Pages'
+      Label: 'Pages'
+      ClassName: 'Page'
+      Table: 'Page_Live'
+      ExtraWhere: 'ShowInSearch = 1'
+      Columns: ['Title','MetaDescription','MenuTitle','Content']
+  relations:
+    - Name: 'Author'
+      Label: 'Author'
+      ClassName: 'SilverStripe\Security\Member'
+      Table: 'Member'
+      JoinColumn: 'MemberID'
+  properties:
+    - Name: 'PublishedBefore'
+      Label: 'Published before'
+      Column: 'PublishDate'
+      Operator: '<'
+    - Name: 'PublishedAfter'
+      Label: 'Published after'
+      Column: 'PublishDate'
+      Operator: '>'

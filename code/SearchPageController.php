@@ -8,10 +8,12 @@ use SilverStripe\Forms\FormAction;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\TextField;
 use SilverStripe\Forms\CheckboxSetField;
+use SilverStripe\Forms\DropdownField;
 use SilverStripe\Forms\HiddenField;
 use SilverStripe\ORM\ArrayList;
 use SilverStripe\ORM\PaginatedList;
 use SilverStripe\ORM\DB;
+use SilverStripe\Core\Config\Config;
 
 class SearchPageController extends PageController {
 	
@@ -19,7 +21,6 @@ class SearchPageController extends PageController {
 	private static $query;
 	private static $parameters;
 	private static $types_selected;
-	private static $types_available;
 	private static $results;
 	private static $results_url;
 	
@@ -31,19 +32,52 @@ class SearchPageController extends PageController {
 	
 	// setup the search parameters
 	private static $url_handlers = array(
-		'search/$Query' => 'search'
+		'SearchForm' => 'SearchForm',
+		'' => 'search'
 	);
 	
 	
 	/**
 	 * Getters
 	 **/
-	public static function get_types_available(){
-		return self::$types_available;
+
+	public static function get_types(){
+		$types = Config::inst()->get('Jaedb\Search\SearchPageController', 'types');
+		$array = [];
+
+		if ($types){
+			foreach ($types as $type){
+				$array[$type['Name']] = $type;
+			}
+		}
+
+		return $array;
 	}
-	
-	public static function set_types_available( $types ){
-		self::$types_available = $types;
+
+	public static function get_relations(){
+		$relations = Config::inst()->get('Jaedb\Search\SearchPageController', 'relations');
+		$array = [];
+
+		if ($relations){
+			foreach ($relations as $relation){
+				$array[$relation['Name']] = $relation;
+			}
+		}
+
+		return $array;
+	}
+
+	public static function get_properties(){
+		$properties = Config::inst()->get('Jaedb\Search\SearchPageController', 'properties');
+		$array = [];
+
+		if ($properties){
+			foreach ($properties as $property){
+				$array[$property['Name']] = $property;
+			}
+		}
+
+		return $array;
 	}
 	
 	public static function get_types_selected(){
@@ -64,7 +98,7 @@ class SearchPageController extends PageController {
 		return $query;
 	}
 	
-	public static function set_query( $query ){
+	public static function set_query( $query = null ){
 		self::$query = $query;
 	}
 	
@@ -90,78 +124,7 @@ class SearchPageController extends PageController {
 	
 	public static function set_results_url( $results_url ){
 		self::$results_url = $results_url;
-	}
-	
-	
-	/**
-	 * This is the action that is called when we request /search/$Query, so essentially the core of our engine
-	 * @param $request = HTTP_Request
-	 * @return array
-	 **/
-	public function search($request){
-	
-		// get the parameters and variables of this request (ie the query and filters)
-		$params = $request->allParams();
-		$vars = $request->requestVars();
-		
-		// set the query variable
-		if( isset($params['Query']) && $params['Query'] != '' ){
-			self::set_query( $params['Query'] );
-		}
-		
-		// make sure we have some parameters
-		if( isset($vars['params']) && $vars['params'] != '' ){
-			
-			// decode them from our mumbo-jumbo
-			$parameters = base64_decode(urldecode( $vars['params'] ));
-			$parameters = json_decode( $parameters, true );
-			
-			// store in our static variable for construction of our queries
-			self::set_parameters( $parameters );
-			
-			// set the types
-			if( $parameters['Types'] ){
-				
-				// clear our classes defaults
-				$typesSelected = array();
-				$typesAvailable = self::get_types_available();
-				
-				// if we've been given a restriction on our classes to search
-				// you can set these within updateSearchForm() by creating a HiddenField or similar
-				if( isset($parameters['Types']) ){
-				
-					// an array of types (ie from a CheckboxSet field)
-					if( is_array($parameters['Types']) ){
-						foreach( $parameters['Types'] as $name => $details ){
-							if( !isset($typesAvailable[ $name ]) ){
-								echo 'Trying to search type "'.$name.'" but it is not enabled for search';
-								die();
-							}
-							$typesSelected[ $name ] = $typesAvailable[ $name ];
-						}
-					
-					// just a string (ie HiddenField)
-					}else{
-						$name = $parameters['Types'];
-						if( !isset($typesAvailable[ $name ]) ){
-							echo 'Trying to search type "'.$name.'" but it is not enabled for search';
-							die();
-						}
-						$typesSelected[ $name ] = $typesAvailable[ $name ];
-					}
-				}
-				
-				self::set_types_selected( $typesSelected );
-			}		
-		}
-		
-		// now actually get the results
-		self::set_results($this->PerformSearch());
-		
-		// this lets the request proceed as per usual to template rendering 
-		return [];
-	}
-	
+	}	
 	
 	/**
 	 * Get the search query
@@ -190,13 +153,16 @@ class SearchPageController extends PageController {
 	 **/
 	public function Types(){
 		$types = self::get_types_selected();
-		if( !$types ) return false;
-		
+		if (!$types){
+			return false;
+		}
+
 		$completeTypes = ArrayList::create();
-		foreach( $types as $type => $details ){
+		foreach ($types as $type => $details){
 			$details['Name'] = $type;
 			$completeTypes->push( $details );
 		}
+
 		return $completeTypes;	
 	}
 	
@@ -222,6 +188,76 @@ class SearchPageController extends PageController {
 	
 	
 	/**
+	 * This is the core of our engine
+	 * @param $request = HTTP_Request
+	 * @return array
+	 **/
+	public function search($request){
+	
+		// get the parameters and variables of this request (ie the query and filters)
+		$vars = $request->requestVars();
+		
+		// set the query variable
+		if( isset($vars['query']) && $vars['query'] != '' ){
+			self::set_query( $vars['query'] );
+		}
+		
+		// make sure we have some parameters
+		if( isset($vars['params']) && $vars['params'] != '' ){
+			
+			// decode them from our mumbo-jumbo
+			$parameters = base64_decode(urldecode( $vars['params'] ));
+			$parameters = json_decode( $parameters, true );
+			
+			// store in our static variable for construction of our queries
+			self::set_parameters( $parameters );
+			
+			// set the types
+			if( $parameters['Types'] ){
+				
+				// clear our classes defaults
+				$types = self::get_types();
+				$typesSelected = array();
+				
+				// if we've been given a restriction on our classes to search
+				// you can set these within updateSearchForm() by creating a HiddenField or similar
+				if( isset($parameters['Types']) ){
+				
+					// an array of types (ie from a CheckboxSet field)
+					if( is_array($parameters['Types']) ){
+						foreach( $parameters['Types'] as $name => $details ){
+							if( !isset($types[ $name ]) ){
+								echo 'Trying to search type "'.$name.'" but it is not enabled for search';
+								die();
+							}
+							$typesSelected[ $name ] = $types[ $name ];
+						}
+					
+					// just a string (ie HiddenField)
+					}else{
+						$name = $parameters['Types'];
+						if( !isset($types[ $name ]) ){
+							echo 'Trying to search type "'.$name.'" but it is not enabled for search';
+							die();
+						}
+						$typesSelected[ $name ] = $types[ $name ];
+					}
+				}
+				
+				self::set_types_selected( $typesSelected );
+			}		
+		}
+		
+		// now actually get the results
+		self::set_results($this->PerformSearch());
+		
+		// this lets the request proceed as per usual to template rendering 
+		return [];
+	}
+
+	
+	
+	/**
 	 * Build the search form
 	 * Use this as the base platform when creating specific search forms
 	 * @return obj
@@ -232,6 +268,8 @@ class SearchPageController extends PageController {
 		// this is used to keep the search form on screen up-to-date with our results
 		$query = self::get_query();
 		$parameters = self::get_parameters();
+
+		var_dump($parameters);
 		
 		// create our search form fields
         $fields = FieldList::create();
@@ -240,21 +278,53 @@ class SearchPageController extends PageController {
 		$fields->push( TextField::create('Query','',$query)->addExtraClass('query')->setAttribute('placeholder', 'Keywords') );
 		
 		// classes to search		
-		$typesSource = array('all' => 'All types');
-		foreach( self::get_types_available() as $type => $details ){
-			$typesSource[ $type ] = $type;
+		if ($types = self::get_types()){
+			$source = ['all' => 'All types'];
+
+			foreach ($types as $type){
+				$source[ $type['Name'] ] = $type['Name'];
+			}
+			
+			$value = [];
+			if ($parameters['Types']){
+				$value = $parameters['Types'];
+			}
+
+			$fields->push( CheckboxSetField::create('Types', 'Types', $source, $value) );
 		}
 		
-		$typesSelected = array();
-		if( $parameters['Types'] ){
-			$typesSelected = $parameters['Types'];
+		// Relationships that we need to map
+		if ($relations = self::get_relations()){
+			foreach ($relations as $relation){
+				$source = $relation['ClassName']::get();
+
+				if (isset($relation['Filter'])){
+					$source = $source->filter($relation['Filter']);
+				}
+			
+				$value = null;
+				if (isset($parameters['Relations'][$relation['Name']])){
+					$value = $parameters['Relations'][$relation['Name']];
+				}
+
+				$fields->push(DropdownField::create('Relation_'.$relation['Name'], $relation['Label'], $source->map('ID','Title','All'), $value));
+			}
 		}
 		
-		// default to show all available classes to search
-		$fields->push( CheckboxSetField::create('Types', 'Types', $typesSource, $typesSelected) );
+		// Properties that we need to map
+		if ($properties = self::get_properties()){
+			foreach ($properties as $property){
+				$value = null;
+				if (isset($parameters['Properties'][$property['Name']])){
+					$value = $parameters['Properties'][$property['Name']];
+				}
+
+				$fields->push(TextField::create('Property_'.$property['Name'], $property['Label'], $value));
+			}
+		}
 		
 		// use this page's link as the search results URL (customise this within your page's updateSearchForm() )
-		$fields->push( HiddenField::create('ResultsURL', 'ResultsURL', $this->owner->Link()) );
+		$fields->push( HiddenField::create('ResultsURL', 'ResultsURL', $this->owner->Link()));
 		
 		// create the form actions (we only need a submit button)
         $actions = FieldList::create(
@@ -303,25 +373,57 @@ class SearchPageController extends PageController {
 				'Relations' => array()
 			);
 		
-		if( isset($data['Query']) ){
-			$query = urlencode($data['Query']);
-		}
-		
-		if( isset($data['Types']) ){
-		
-			if( is_array( $data['Types'] ) ){
-				// if we have selected 'all', find it and remove it from our types array
-				$pos = array_search('all', $data['Types']);			
-				unset($data['Types'][$pos]);
-			}else{
-				if( $data['Types'] == 'all' ){
-					unset($data['Types']);
-				}
-			}
+		foreach ($data as $key => $value){
+
+			// The query parameter
+			if ($key == 'Query'){
+				$query = urlencode($data['Query']);
+
+			// Types parameter
+			} else if ($key == 'Types'){
 			
-			$searchParameters['Types'] = $data['Types'];
+				if( is_array( $data['Types'] ) ){
+					// if we have selected 'all', find it and remove it from our types array
+					$pos = array_search('all', $data['Types']);			
+					unset($data['Types'][$pos]);
+				}else{
+					if( $data['Types'] == 'all' ){
+						unset($data['Types']);
+					}
+				}
+				
+				$searchParameters['Types'] = $data['Types'];
+
+			// Property parameters (prepended with Relation_)
+			} else if (substr($key, 0, strlen('Property_')) === 'Property_'){
+				
+				$name = substr($key, strlen('Property_'));
+
+				// Only apply where it's a non-falsy value
+				if ($value && $value != 'all'){					
+					$searchParameters['Properties'][$name] = $value;
+				}
+
+			// Relationship parameters (prepended with Relation_)
+			} else if (substr($key, 0, strlen('Relation_')) === 'Relation_'){
+				
+				$name = substr($key, strlen('Relation_'));
+				$relations = self::get_relations();
+
+				// Make sure it's a relation we recognise (and have setup)
+				if ($relation = $relations[$name]){
+
+					// Only apply where it's a non-falsy value
+					if ($value && $value != 'all'){					
+						$searchParameters['Relations'][] = [
+							'Table' => $relation['Table'],
+							'Object' => $relation['ClassName'],
+							'Values' => $value
+						];
+					}
+				}
+			}		
 		}
-		
         $searchParameters = $this->owner->updateDoSearchForm( $data, $searchParameters );
 		
 		// sanitize our properties by removing any falsy values
@@ -342,7 +444,7 @@ class SearchPageController extends PageController {
 		$searchParametersEncoded = json_encode( $searchParameters );
 		$searchParametersEncoded = urlencode(base64_encode( $searchParametersEncoded ));
 
-		return $this->owner->redirect( $data['ResultsURL'].'search/'.$query.'?params='.$searchParametersEncoded );		
+		return $this->owner->redirect( $data['ResultsURL'].'?query='.$query.'&params='.$searchParametersEncoded );		
 	}
 	
 	
@@ -371,7 +473,7 @@ class SearchPageController extends PageController {
 		
 		// if we haven't selected any classes, let's just search all available classes
 		if( !$types ){
-			$types = self::get_types_available();
+			$types = self::get_types();
 		}
 		
 		// prepare our final result object
@@ -443,12 +545,12 @@ class SearchPageController extends PageController {
 					
 					// run a preliminary lookup to make sure we have the appropriate relationship in this page class
 					$columnExists = false;
-					$tablesToCheck = array('Page_Live','SiteTree_Live','Article_Live',$details['ClassName']);
+					$tablesToCheck = array('Page_Live','SiteTree_Live',$details['ClassName']);
 					$tableWithColumn = false;
 					
 					// check each of our tables
 					foreach( $tablesToCheck as $table ){
-						$columnExistsQuery = DB::query( "SHOW COLUMNS FROM \"".$table."\" LIKE '".$rule['Field']."'" );				
+						$columnExistsQuery = DB::query( "SHOW COLUMNS FROM \"".$table."\" LIKE '".$rule['Column']."'" );				
 
 						foreach( $columnExistsQuery as $column ) $tableWithColumn = $table;
 					}
