@@ -3,29 +3,33 @@ Name: search
 ---
 Jaedb\Search\SearchPageController:
   types:
-    - Name: 'Documents'
+    docs:
       Label: 'Documents'
       ClassName: 'SilverStripe\Assets\File'
       Table: 'File_Live'
-      Columns: ['Title','Description','Name']
-    - Name: 'Pages'
+      Columns: ['File_Live.Title','File_Live.Description','File_Live.Name']
+    pages:
       Label: 'Pages'
       ClassName: 'Page'
       Table: 'Page_Live'
-      ExtraWhere: 'ShowInSearch = 1'
-      Columns: ['Title','MetaDescription','MenuTitle','Content']
-  relations:
-    - Name: 'Author'
-      Label: 'Author'
-      ClassName: 'SilverStripe\Security\Member'
-      Table: 'Member'
-      JoinColumn: 'MemberID'
-  properties:
-    - Name: 'PublishedBefore'
+      Filters: 
+        SiteTree_Live.ShowInSearch: '1'
+      JoinTables: ['SiteTree_Live']
+      Columns: ['SiteTree_Live.Title','SiteTree_Live.MetaDescription','SiteTree_Live.MenuTitle','SiteTree_Live.Content']
+  filters:
+    pub_before:
       Label: 'Published before'
       Column: 'PublishDate'
       Operator: '<'
-    - Name: 'PublishedAfter'
+    pub_after:
       Label: 'Published after'
       Column: 'PublishDate'
       Operator: '>'
+    banner_image:
+      Label: 'Banner'
+      ClassName: 'SilverStripe\Assets\Image'
+      Table: 'File_Live'
+      Column: 'BannerImageID'
+      Filters: 
+        ParentID: '1'
+      Operator: '='

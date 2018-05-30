@@ -19,73 +19,114 @@ class SearchPageController extends PageController {
 	
 	// these statics hold the search data
 	private static $query;
-	private static $parameters;
-	private static $types_selected;
+	private static $filters;
+	private static $types;
 	private static $results;
 	private static $results_url;
 	
 	// setup the actions to expose our engine
 	private static $allowed_actions = array(
-		'SearchForm',
-		'search'
+		'SearchForm'
 	);
 	
 	// setup the search parameters
 	private static $url_handlers = array(
-		'SearchForm' => 'SearchForm',
-		'' => 'search'
+		'SearchForm' => 'SearchForm'
 	);
+	
+	public function index($request){
+		
+		// get the parameters and variables of this request (ie the query and filters)
+		$vars = $request->requestVars();
+		
+		if (isset($vars['query']) && $vars['query'] != ''){
+			self::set_query($vars['query']);
+			unset($vars['query']);
+		}
+		
+		if (isset($vars['types']) && $vars['types'] != ''){
+			self::set_types(explode(',',$vars['types']));
+			unset($vars['types']);
+		}
+
+		self::set_filters($vars);
+		self::set_results($this->PerformSearch());
+		
+		return [];
+	}
 	
 	
 	/**
 	 * Getters
 	 **/
 
-	public static function get_types(){
+	public static function get_types_available(){
 		$types = Config::inst()->get('Jaedb\Search\SearchPageController', 'types');
 		$array = [];
 
 		if ($types){
-			foreach ($types as $type){
-				$array[$type['Name']] = $type;
+			foreach ($types as $key => $value){
+				$value['Key'] = $key;
+				$array[$key] = $value;
 			}
 		}
 
 		return $array;
 	}
 
-	public static function get_relations(){
-		$relations = Config::inst()->get('Jaedb\Search\SearchPageController', 'relations');
+	public static function get_filters_available(){
+		$filters = Config::inst()->get('Jaedb\Search\SearchPageController', 'filters');
 		$array = [];
 
-		if ($relations){
-			foreach ($relations as $relation){
-				$array[$relation['Name']] = $relation;
-			}
-		}
-
-		return $array;
-	}
-
-	public static function get_properties(){
-		$properties = Config::inst()->get('Jaedb\Search\SearchPageController', 'properties');
-		$array = [];
-
-		if ($properties){
-			foreach ($properties as $property){
-				$array[$property['Name']] = $property;
+		if ($filters){
+			foreach ($filters as $key => $value){
+				$value['Key'] = $key;
+				$array[$key] = $value;
 			}
 		}
 
 		return $array;
 	}
 	
-	public static function get_types_selected(){
-		return self::$types_selected;
+	public static function get_types(){
+		return self::$types;
 	}
 	
-	public static function set_types_selected( $types ){
-		self::$types_selected = $types;
+	public static function set_types( $types ){
+		self::$types = $types;
+	}
+	
+	public static function get_mapped_types(){
+		$types_available = self::get_types_available();
+		$types = [];
+		foreach (self::get_types() as $key){
+			if (isset($types_available[$key])){
+				$types[] = $types_available[$key];
+			}
+		}
+		return $types;
+	}
+	
+	public static function get_filters(){
+		return self::$filters;
+	}
+	
+	public static function set_filters( $filters ){
+		self::$filters = $filters;
+	}
+	
+	public static function get_mapped_filters(){
+		$filters_available = self::get_filters_available();
+		$filters = [];
+
+		foreach (self::get_filters() as $key => $value){
+			if (isset($filters_available[$key])){
+				$filter = $filters_available[$key];
+				$filter['Value'] = $value;
+				$filters[] = $filter;
+			}
+		}
+		return $filters;
 	}
 	
 	public static function get_query( $mysqlSafe = false ){
@@ -102,14 +143,6 @@ class SearchPageController extends PageController {
 		self::$query = $query;
 	}
 	
-	public static function get_parameters(){
-		return self::$parameters;
-	}
-	
-	public static function set_parameters( $parameters ){
-		self::$parameters = $parameters;
-	}
-	
 	public static function get_results(){
 		return self::$results;
 	}
@@ -117,14 +150,6 @@ class SearchPageController extends PageController {
 	public static function set_results( $results ){
 		self::$results = $results;
 	}
-	
-	public static function get_results_url(){
-		return self::$results_url;
-	}
-	
-	public static function set_results_url( $results_url ){
-		self::$results_url = $results_url;
-	}	
 	
 	/**
 	 * Get the search query
@@ -152,15 +177,17 @@ class SearchPageController extends PageController {
 	 * @return ArrayList
 	 **/
 	public function Types(){
-		$types = self::get_types_selected();
+		$types = self::get_types();
+		$types_available = self::get_types_available();
 		if (!$types){
 			return false;
 		}
 
 		$completeTypes = ArrayList::create();
-		foreach ($types as $type => $details){
-			$details['Name'] = $type;
-			$completeTypes->push( $details );
+		foreach ($types as $type){
+			if (isset($types_available[$type])){
+				$completeTypes->push($types_available[$type]);
+			}
 		}
 
 		return $completeTypes;	
@@ -185,75 +212,6 @@ class SearchPageController extends PageController {
 	public function updateResultsURL( $url ){
 		return $url;
 	}
-	
-	
-	/**
-	 * This is the core of our engine
-	 * @param $request = HTTP_Request
-	 * @return array
-	 **/
-	public function search($request){
-	
-		// get the parameters and variables of this request (ie the query and filters)
-		$vars = $request->requestVars();
-		
-		// set the query variable
-		if( isset($vars['query']) && $vars['query'] != '' ){
-			self::set_query( $vars['query'] );
-		}
-		
-		// make sure we have some parameters
-		if( isset($vars['params']) && $vars['params'] != '' ){
-			
-			// decode them from our mumbo-jumbo
-			$parameters = base64_decode(urldecode( $vars['params'] ));
-			$parameters = json_decode( $parameters, true );
-			
-			// store in our static variable for construction of our queries
-			self::set_parameters( $parameters );
-			
-			// set the types
-			if( $parameters['Types'] ){
-				
-				// clear our classes defaults
-				$types = self::get_types();
-				$typesSelected = array();
-				
-				// if we've been given a restriction on our classes to search
-				// you can set these within updateSearchForm() by creating a HiddenField or similar
-				if( isset($parameters['Types']) ){
-				
-					// an array of types (ie from a CheckboxSet field)
-					if( is_array($parameters['Types']) ){
-						foreach( $parameters['Types'] as $name => $details ){
-							if( !isset($types[ $name ]) ){
-								echo 'Trying to search type "'.$name.'" but it is not enabled for search';
-								die();
-							}
-							$typesSelected[ $name ] = $types[ $name ];
-						}
-					
-					// just a string (ie HiddenField)
-					}else{
-						$name = $parameters['Types'];
-						if( !isset($types[ $name ]) ){
-							echo 'Trying to search type "'.$name.'" but it is not enabled for search';
-							die();
-						}
-						$typesSelected[ $name ] = $types[ $name ];
-					}
-				}
-				
-				self::set_types_selected( $typesSelected );
-			}		
-		}
-		
-		// now actually get the results
-		self::set_results($this->PerformSearch());
-		
-		// this lets the request proceed as per usual to template rendering 
-		return [];
-	}
 
 	
 	
@@ -264,62 +222,54 @@ class SearchPageController extends PageController {
 	 **/
 	public function SearchForm(){
 		
-		// get the search parameters
-		// this is used to keep the search form on screen up-to-date with our results
-		$query = self::get_query();
-		$parameters = self::get_parameters();
-
-		var_dump($parameters);
-		
 		// create our search form fields
         $fields = FieldList::create();
 		
 		// search keywords
-		$fields->push( TextField::create('Query','',$query)->addExtraClass('query')->setAttribute('placeholder', 'Keywords') );
+		$fields->push( TextField::create('query','',self::get_query())->addExtraClass('query')->setAttribute('placeholder', 'Keywords') );
 		
 		// classes to search		
-		if ($types = self::get_types()){
-			$source = ['all' => 'All types'];
+		if ($types_available = self::get_types_available()){
+			$source = ['' => 'All types'];
 
-			foreach ($types as $type){
-				$source[ $type['Name'] ] = $type['Name'];
-			}
-			
-			$value = [];
-			if ($parameters['Types']){
-				$value = $parameters['Types'];
+			// Construct the array of options for the field
+			foreach ($types_available as $key => $type){
+				$source[$key] = $type['Label'];
 			}
 
-			$fields->push( CheckboxSetField::create('Types', 'Types', $source, $value) );
+			$fields->push(CheckboxSetField::create('types', 'Types', $source, self::get_types()));
 		}
 		
-		// Relationships that we need to map
-		if ($relations = self::get_relations()){
-			foreach ($relations as $relation){
-				$source = $relation['ClassName']::get();
+		// Filters that we need to map
+		if ($filters_available = self::get_filters_available()){
 
-				if (isset($relation['Filter'])){
-					$source = $source->filter($relation['Filter']);
-				}
-			
+			// Grab our already-set filters
+			$filters = self::get_filters();
+
+			foreach ($filters_available as $key => $filter){
+
+				// Identify any existing values (ie if we're on the results page with values already set)
 				$value = null;
-				if (isset($parameters['Relations'][$relation['Name']])){
-					$value = $parameters['Relations'][$relation['Name']];
+				if (isset($filters[$key])){
+					$value = $filters[$key];
 				}
 
-				$fields->push(DropdownField::create('Relation_'.$relation['Name'], $relation['Label'], $source->map('ID','Title','All'), $value));
-			}
-		}
-		
-		// Properties that we need to map
-		if ($properties = self::get_properties()){
-			foreach ($properties as $property){
-				$value = null;
-				if (isset($parameters['Properties'][$property['Name']])){
-					$value = $parameters['Properties'][$property['Name']];
-				}
+				// Table is defined, so it's a relational-based filter
+				if (isset($filter['Table'])){
 
-				$fields->push(TextField::create('Property_'.$property['Name'], $property['Label'], $value));
+					$source = $filter['ClassName']::get();
+
+					// We need to apply a filter to the displayed relational options (based on config)
+					if (isset($filter['Filters'])){
+						$source = $source->filter($filter['Filters']);
+					}
+
+					$fields->push(DropdownField::create($key, $filter['Label'], $source->map('ID','Title','All'), $value)->setEmptyString('All '.$filter['Label'].'s'));
+
+				// Non-relational; just a simple column on the subject's record
+				} else {
+					$fields->push(TextField::create($key, $filter['Label'], $value));
+				}
 			}
 		}
 		
@@ -333,7 +283,7 @@ class SearchPageController extends PageController {
 		
 		// now build the actual form object
         $form = Form::create(
-			$controller = $this->owner,
+			$controller = $this,
 			$name = 'SearchForm', 
 			$fields = $fields,
 			$actions = $actions
@@ -363,88 +313,34 @@ class SearchPageController extends PageController {
 	 * @param $form = obj (the originating SearchForm object)
 	 * @return null
 	 **/
-	public function doSearchForm( $data, $form ){
-		
-		// hold the attributes for our search redirection payload
-		$query = '';
-		$searchParameters = array(
-				'Types' => array(),
-				'Properties' => array(),
-				'Relations' => array()
-			);
-		
+	public function doSearchForm($data, $form){
+
+		$filters_available = self::get_filters_available();
+
+		$vars = '';
 		foreach ($data as $key => $value){
 
-			// The query parameter
-			if ($key == 'Query'){
-				$query = urlencode($data['Query']);
+			// Make sure we only carry configured filters
+			// This begins to protect us against malicious use :-)
+			if ((isset($filters_available[$key]) || $key == 'query' || $key == 'types') && $value && $value !== ''){
 
-			// Types parameter
-			} else if ($key == 'Types'){
-			
-				if( is_array( $data['Types'] ) ){
-					// if we have selected 'all', find it and remove it from our types array
-					$pos = array_search('all', $data['Types']);			
-					unset($data['Types'][$pos]);
-				}else{
-					if( $data['Types'] == 'all' ){
-						unset($data['Types']);
-					}
-				}
-				
-				$searchParameters['Types'] = $data['Types'];
-
-			// Property parameters (prepended with Relation_)
-			} else if (substr($key, 0, strlen('Property_')) === 'Property_'){
-				
-				$name = substr($key, strlen('Property_'));
-
-				// Only apply where it's a non-falsy value
-				if ($value && $value != 'all'){					
-					$searchParameters['Properties'][$name] = $value;
+				// Concat into a URL string
+				if ($vars == ''){
+					$vars .= '?'.$key.'=';
+				} else {
+					$vars .= '&'.$key.'=';
 				}
 
-			// Relationship parameters (prepended with Relation_)
-			} else if (substr($key, 0, strlen('Relation_')) === 'Relation_'){
-				
-				$name = substr($key, strlen('Relation_'));
-				$relations = self::get_relations();
-
-				// Make sure it's a relation we recognise (and have setup)
-				if ($relation = $relations[$name]){
-
-					// Only apply where it's a non-falsy value
-					if ($value && $value != 'all'){					
-						$searchParameters['Relations'][] = [
-							'Table' => $relation['Table'],
-							'Object' => $relation['ClassName'],
-							'Values' => $value
-						];
-					}
+				// And merge any arrays into comma-separated values
+				if (is_array($value)){
+					$vars .= join(',',$value);
+				} else {
+					$vars .= $value;
 				}
-			}		
-		}
-        $searchParameters = $this->owner->updateDoSearchForm( $data, $searchParameters );
-		
-		// sanitize our properties by removing any falsy values
-		foreach( $searchParameters['Properties'] as $i => $property ){			
-			if( count($property['Values']) <= 0 || $property['Values'] == '' ){
-				unset($searchParameters['Properties'][$i]);
-			}
-		}
-		
-		// sanitize our relations by removing any falsy values
-		foreach( $searchParameters['Relations'] as $i => $property ){
-			if( count($property['Values']) <= 0 || $property['Values'] == '' ){
-				unset($searchParameters['Relations'][$i]);
 			}
 		}
 
-		// compile our url into a json object, and encode it for a (slightly) more secure url
-		$searchParametersEncoded = json_encode( $searchParameters );
-		$searchParametersEncoded = urlencode(base64_encode( $searchParametersEncoded ));
-
-		return $this->owner->redirect( $data['ResultsURL'].'?query='.$query.'&params='.$searchParametersEncoded );		
+		return $this->redirect($data['ResultsURL'].$vars);		
 	}
 	
 	
@@ -467,168 +363,153 @@ class SearchPageController extends PageController {
 	public function PerformSearch(){
 		
 		// get all our search requirements
-		$query = self::get_query( $mysqlSafe = true );
-		$types = self::get_types_selected();
-		$parameters = self::get_parameters();
-		
-		// if we haven't selected any classes, let's just search all available classes
-		if( !$types ){
-			$types = self::get_types();
-		}
+		$query = self::get_query($mysqlSafe = true);
+		$types = self::get_mapped_types();
+		$filters = self::get_mapped_filters();
 		
 		// prepare our final result object
 		$allResults = ArrayList::create();
 		
 		// loop all the records we need to lookup
-		foreach( $types as $type => $details ){
-			
-			$columns = $details['Columns'];
+		foreach ($types as $type){
 			
 			$sql = '';
 			$joins = '';
 			$where = '';
 			$sort = '';
 			
-			// if we ARE or we EXTEND Page
-			if( is_subclass_of( singleton($details['ClassName']), 'Page' ) || $details['ClassName'] == 'Page' ){
-				
-				$sql.= "SELECT \"SiteTree_Live\".\"ID\" AS \"ResultObject_ID\", \"SiteTree_Live\".\"ClassName\" AS \"ResultObject_ClassName\" FROM \"".$details['Table']."\" ";
-				
-				// if we're not Page, then join with the Page table
-				if( $details['ClassName'] != 'Page' ) $joins.= "LEFT JOIN \"Page_Live\" ON \"Page_Live\".\"ID\" = \"".$details['Table']."\".\"ID\" ";
-				
-				// and then join onto SiteTree
-				$joins.= "LEFT JOIN \"SiteTree_Live\" ON \"SiteTree_Live\".\"ID\" = \"Page_Live\".\"ID\" ";		
+			/**
+			 * Result selection
+			 * We only need ClassName and ID to fetch the full object (using the SilverStripe ORM)
+			 * once we've got our results
+			 **/
+			$sql.= "SELECT \"".$type['Table']."\".\"ID\" AS \"ResultObject_ID\" FROM \"".$type['Table']."\" ";
 			
-			// any old dataobject
-			}else{
-				$sql.= "SELECT \"".$details['Table']."\".\"ID\" AS \"ResultObject_ID\", \"".$details['Table']."\".\"ClassName\" AS \"ResultObject_ClassName\" FROM \"".$details['Table']."\" ";
-			}
-			
-			// handle any additional joins required
-			if( isset($details['ExtraTables']) && count($details['ExtraTables']) > 0 ){
-				foreach( $details['ExtraTables'] as $extraTable ){
-					$joins.= "LEFT JOIN \"".$extraTable."\" ON \"".$extraTable."\".\"ID\" = \"".$details['Table']."\".\"ID\" ";		
+			// Join this type with any dependent tables (if applicable)
+			if (isset($type['JoinTables'])){
+				foreach ($type['JoinTables'] as $joinTable){
+					$joins.= "LEFT JOIN \"".$joinTable."\" ON \"".$joinTable."\".\"ID\" = \"".$type['Table']."\".\"ID\" ";		
 				}
 			}
 			
-			
-			// SEARCH TERM
-			// The actual keywords. Search all the configured columns for this term.
-			
+			/**
+			 * Query term
+			 * We search each column for this type for the provided query string
+			 */
 			$where .= ' WHERE (';
-			foreach( $columns as $i => $column ){
-				if( $i > 0 ){
+			foreach ($type['Columns'] as $i => $column){
+				$column = explode('.',$column);
+				if ($i > 0){
 					$where .= ' OR ';
 				}
-				$where .= "\"". $column ."\" LIKE CONCAT('%','". $query ."','%')";
+				$where .= "\"".$column[0]."\".\"".$column[1]."\" LIKE CONCAT('%','".$query."','%')";
 			}
 			$where.= ')';
 			
 			
-			// EXTRA WHERE PROPERTIES
-			// Facilitates extra properties on a per-Type basis. See _config.php for more details
-			
-			if( isset($details['ExtraWhere']) ){
-				$where.= ' AND ('.$details['ExtraWhere'].')';
+			/**
+			 * Apply our type-level filters (if applicable)
+			 **/		
+			if (isset($type['Filters'])){
+				foreach ($type['Filters'] as $key => $value){
+					$where.= ' AND ('.$key.' = '.$value.')';
+				}
 			}
 			
-			// SEARCH PROPERTIES
-			// These are actually just columns that match a specific value
 			
-			if( count($parameters['Properties']) > 0 ){
-			
-				// open our wrapper
-				$where.= ' AND (';
-			
-				foreach( $parameters['Properties'] as $i => $rule ){
-					
-					// run a preliminary lookup to make sure we have the appropriate relationship in this page class
-					$columnExists = false;
-					$tablesToCheck = array('Page_Live','SiteTree_Live',$details['ClassName']);
-					$tableWithColumn = false;
-					
-					// check each of our tables
-					foreach( $tablesToCheck as $table ){
-						$columnExistsQuery = DB::query( "SHOW COLUMNS FROM \"".$table."\" LIKE '".$rule['Column']."'" );				
+			/**
+			 * Apply filtering
+			 **/
+			if ($filters){
+				foreach ($filters as $filter){
 
-						foreach( $columnExistsQuery as $column ) $tableWithColumn = $table;
-					}
-
-					// if we didn't get a column, then we simply cannot search this class!
-					if( $tableWithColumn != $details['Table'] && ( !isset($details['ExtraTables']) || !in_array( $tableWithColumn, $details['ExtraTables'] ) ) ){
-						continue 2;
-					}
-					
-					if( $i > 0 ) $where.= ' AND ';
-					
-					if( is_array( $rule['Values'] ) ){
-						$valuesString = '';
-						foreach( $rule['Values'] as $value ){
-							if( $valuesString != '' ) $valuesString.= ',';
-							$valuesString.= "'".$value."'";
+					/**
+					 * A specific table has been configured. We need to
+					 * treat this as a relational filter (ie Page.Author; has_one)
+					 **/
+					if (isset($filter['Table'])){
+						
+						// Identify which table has the column which we need to filter by
+						$table_with_column = null;
+						if (isset($type['JoinTables'])){
+							$tables_to_check = $type['JoinTables'];
+						} else {
+							$tables_to_check = [];
 						}
-					}else{
-						$valuesString = $rule['Values'];
-					}
-					
-					// wrapping braces around values if we're checking an array of items
-					if( $rule['Operator'] == 'IN' ) $valuesString = '('.$valuesString.')';
-					
-					$where.= "\"".$tableWithColumn."\".\"".$rule['Field']."\" ".$rule['Operator']." ". $valuesString ."";
-				}
-			
-				// close our wrapper
-				$where.= ')';
-			}			
-			
-			
-			// SEARCH RELATIONS
-			// Object-oriented filtering, uses joins and filters
-			
-			if( count($parameters['Relations']) > 0 ){
+						$tables_to_check[] = $type['Table'];
+
+						foreach ($tables_to_check as $table_to_check){
+							$column_exists_query = DB::query( "SHOW COLUMNS FROM \"".$table_to_check."\" LIKE '".$filter['Column']."'" );				
+
+							foreach ($column_exists_query as $column){
+								$table_with_column = $table_to_check;
+							}
+						}
+
+						// Not anywhere in this type's table joins, so we can't search this particular type
+						if (!$table_with_column){
+							continue 2;
+						}
+
+						// join the relationship table to our record(s)
+						$joins.= "LEFT JOIN \"".$filter['Table']."\" ON \"".$filter['Table']."\".\"ID\" = \"".$table_with_column."\".\"".$filter['Column']."\"";
+						
+						if (is_array($filter['Value'])){
+							$ids = '';
+							foreach ($filter['Value'] as $id){
+								if ($ids != ''){
+									$ids.= ',';
+								}
+								$ids.= "'".$id."'";
+							}
+						} else {
+							$ids = $filter['Value'];
+						}
+						$where.= ' AND ('."\"".$table_with_column."\".\"".$filter['Column']."\" IN (". $ids .")".')';
+
+					/**
+					 * Not relational, so just filter on the subject's table; a simple
+					 * WHERE clause (ie Page.Title; db)
+					 **/
+					} else {
 				
-				$relationsSql = '';
-				
-				foreach( $parameters['Relations'] as $i => $relation ){
+						// open our wrapper
+						$where.= ' AND (';
+						
+						/**
+						 * This particular type needs to join with other parent tables to
+						 * form a complete, and searchable row
+						 **/
+						if (isset($filter['JoinTables'])){
+							// TODO
+						}
+						
+						if (is_array($filter['Value'])){
+							$valuesString = '';
+							foreach ($filter['Value'] as $value){
+								if ($valuesString != ''){
+									$valuesString.= ',';
+								}
+								$valuesString.= "'".$value."'";
+							}
+						}else{
+							$valuesString = $filter['Value'];
+						}
+						
+						$where.= "\"".$type['Table']."\".\"".$filter['Column']."\" ".$filter['Operator']." ". $valuesString ."";
 					
-					// run a preliminary lookup to make sure we have the appropriate relationship in this page class
-					$columnExistsQuery = DB::query("SHOW COLUMNS FROM \"".$relation['Table']."\" LIKE 'ArticleID'");
-					$columnExists = false;
-					foreach( $columnExistsQuery as $column ) $columnExists = true;
-					
-					// if we didn't get a column, then we simply cannot search this class!
-					if( !$columnExists ){
-						echo "<h2>SHOW COLUMNS FROM \"".$relation['Table']."\" LIKE 'ArticleID'</h2>";
-						continue 2;
+						// close our wrapper
+						$where.= ')';
 					}
-					
-					// join string (except for first iteration)
-					if( $i > 0 ) $relationsSql .= ' AND ';
-					
-					// join the relationship table to our record(s)
-					$joins.= "LEFT JOIN \"".$relation['Table']."\" ON \"".$relation['Table']."\".\"ArticleID\" = \"".$details['Table']."\".\"ID\" ";
-					
-					$ids = '';
-					foreach( $relation['Values'] as $id ){
-						if( $ids != '' ) $ids.= ',';
-						$ids.= "'".$id."'";
-					}
-					$relationsSql.= "\"".$relation['Table']."\".\"".$relation['Object']."ID\" IN (". $ids .")";
-				}
-				
-				if( $relationsSql != '' ){
-					$where.= ' AND ('.$relationsSql.')';
 				}
 			}
 			
-			
-			// EXECUTE
-			// Run the damn thing!
 			
 			// compile our sql string
 			$sql.= $joins;
 			$sql.= $where;
+
+			echo '<h3 style="position: relative; padding: 20px; background: #EEEEEE; z-index: 999;">'.$sql.'</h3>';
 
 			// executioners enter stage left
 			$results = DB::query( $sql );
@@ -641,7 +522,7 @@ class SearchPageController extends PageController {
 			
 			// convert our sql result into SilverStripe objects, of the appropriate class
 			if ($resultIDs){
-				$resultObjects = $details['ClassName']::get()->filter('ID', $resultIDs );
+				$resultObjects = $type['ClassName']::get()->filter('ID', $resultIDs );
 				$allResults->merge($resultObjects);
 			}
 		}
@@ -651,7 +532,7 @@ class SearchPageController extends PageController {
 		$allResults = $allResults->Sort('PublishDate DESC');
 		
 		// load into a paginated list. To change the items per page, set via the template (ie Results.setPageLength(20))
-		$paginatedItems = PaginatedList::create($allResults, $this->owner->request);
+		$paginatedItems = PaginatedList::create($allResults, $this->request);
 		
 		return $paginatedItems;
 	}
