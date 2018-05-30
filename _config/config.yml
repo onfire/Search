@@ -1,6 +1,9 @@
 ---
 Name: search
 ---
+SilverStripe\Control\Controller:
+  extensions:
+    - Jaedb\Search\SearchControllerExtension
 Jaedb\Search\SearchPageController:
   types:
     docs:

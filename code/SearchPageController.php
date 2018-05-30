@@ -3,13 +3,6 @@
 namespace Jaedb\Search;
 
 use PageController;
-use SilverStripe\Forms\Form;
-use SilverStripe\Forms\FormAction;
-use SilverStripe\Forms\FieldList;
-use SilverStripe\Forms\TextField;
-use SilverStripe\Forms\CheckboxSetField;
-use SilverStripe\Forms\DropdownField;
-use SilverStripe\Forms\HiddenField;
 use SilverStripe\ORM\ArrayList;
 use SilverStripe\ORM\PaginatedList;
 use SilverStripe\ORM\DB;
@@ -92,19 +85,23 @@ class SearchPageController extends PageController {
 		return self::$types;
 	}
 	
-	public static function set_types( $types ){
+	public static function set_types($types){
 		self::$types = $types;
 	}
 	
 	public static function get_mapped_types(){
 		$types_available = self::get_types_available();
-		$types = [];
-		foreach (self::get_types() as $key){
-			if (isset($types_available[$key])){
-				$types[] = $types_available[$key];
+		$mapped_types = [];
+		if ($types = self::get_types()){
+			foreach (self::get_types() as $key){
+				if (isset($types_available[$key])){
+					$mapped_types[] = $types_available[$key];
+				}
 			}
+		} else {
+			$mapped_types = $types_available;
 		}
-		return $types;
+		return $mapped_types;
 	}
 	
 	public static function get_filters(){
@@ -191,168 +188,6 @@ class SearchPageController extends PageController {
 		}
 
 		return $completeTypes;	
-	}
-	
-	
-	/**
-	 * Get the results_url
-	 * This is just an alias to get my static variable
-	 * @return ArrayList
-	 **/
-	public function ResultsURL(){
-		return self::get_results_url();
-	}
-	
-	/**
-	 * Placeholder function to facilitate manipulation of the search results url form without having to
-	 * clone ResultsURL method. To use, just create a method updateResultsURL( $url ) and apply your edits
-	 * @param $url = str
-	 * @return str
-	 **/
-	public function updateResultsURL( $url ){
-		return $url;
-	}
-
-	
-	
-	/**
-	 * Build the search form
-	 * Use this as the base platform when creating specific search forms
-	 * @return obj
-	 **/
-	public function SearchForm(){
-		
-		// create our search form fields
-        $fields = FieldList::create();
-		
-		// search keywords
-		$fields->push( TextField::create('query','',self::get_query())->addExtraClass('query')->setAttribute('placeholder', 'Keywords') );
-		
-		// classes to search		
-		if ($types_available = self::get_types_available()){
-			$source = ['' => 'All types'];
-
-			// Construct the array of options for the field
-			foreach ($types_available as $key => $type){
-				$source[$key] = $type['Label'];
-			}
-
-			$fields->push(CheckboxSetField::create('types', 'Types', $source, self::get_types()));
-		}
-		
-		// Filters that we need to map
-		if ($filters_available = self::get_filters_available()){
-
-			// Grab our already-set filters
-			$filters = self::get_filters();
-
-			foreach ($filters_available as $key => $filter){
-
-				// Identify any existing values (ie if we're on the results page with values already set)
-				$value = null;
-				if (isset($filters[$key])){
-					$value = $filters[$key];
-				}
-
-				// Table is defined, so it's a relational-based filter
-				if (isset($filter['Table'])){
-
-					$source = $filter['ClassName']::get();
-
-					// We need to apply a filter to the displayed relational options (based on config)
-					if (isset($filter['Filters'])){
-						$source = $source->filter($filter['Filters']);
-					}
-
-					$fields->push(DropdownField::create($key, $filter['Label'], $source->map('ID','Title','All'), $value)->setEmptyString('All '.$filter['Label'].'s'));
-
-				// Non-relational; just a simple column on the subject's record
-				} else {
-					$fields->push(TextField::create($key, $filter['Label'], $value));
-				}
-			}
-		}
-		
-		// use this page's link as the search results URL (customise this within your page's updateSearchForm() )
-		$fields->push( HiddenField::create('ResultsURL', 'ResultsURL', $this->owner->Link()));
-		
-		// create the form actions (we only need a submit button)
-        $actions = FieldList::create(
-            FormAction::create("doSearchForm")->setTitle("Search")
-        );
-		
-		// now build the actual form object
-        $form = Form::create(
-			$controller = $this,
-			$name = 'SearchForm', 
-			$fields = $fields,
-			$actions = $actions
-		);
-		
-        $form = $this->owner->updateSearchForm( $form );
-		
-        return $form;
-	}
-	
-	
-	/**
-	 * Placeholder function to facilitate manipulation of the search form without having to
-	 * clone SearchForm method. To use, just create a method updateSearchForm( $form ) and apply your edits
-	 * @param $form = obj
-	 * @return obj
-	 **/
-	public function updateSearchForm( $form ){
-		return $form;
-	}
-	
-	
-	
-	/**
-	 * Process the submitted search form. All we're really doing is redirecting to our structured URL
-	 * @param $data = array (post data)
-	 * @param $form = obj (the originating SearchForm object)
-	 * @return null
-	 **/
-	public function doSearchForm($data, $form){
-
-		$filters_available = self::get_filters_available();
-
-		$vars = '';
-		foreach ($data as $key => $value){
-
-			// Make sure we only carry configured filters
-			// This begins to protect us against malicious use :-)
-			if ((isset($filters_available[$key]) || $key == 'query' || $key == 'types') && $value && $value !== ''){
-
-				// Concat into a URL string
-				if ($vars == ''){
-					$vars .= '?'.$key.'=';
-				} else {
-					$vars .= '&'.$key.'=';
-				}
-
-				// And merge any arrays into comma-separated values
-				if (is_array($value)){
-					$vars .= join(',',$value);
-				} else {
-					$vars .= $value;
-				}
-			}
-		}
-
-		return $this->redirect($data['ResultsURL'].$vars);		
-	}
-	
-	
-	/**
-	 * Placeholder function to facilitate manipulation of the search form DOER. To use, just create a method
-	 * updateDoSearchForm( $url ) and apply your edits
-	 * @param $data = array (the original form $_POST data)
-	 * @param $searchParameters = array
-	 * @return string
-	 **/
-	public function updateDoSearchForm( $data, $searchParameters ){
-		return $searchParameters;
 	}
 	
 	
@@ -512,7 +347,7 @@ class SearchPageController extends PageController {
 			$sql.= $joins;
 			$sql.= $where;
 
-			echo '<h3 style="position: relative; padding: 20px; background: #EEEEEE; z-index: 999;">'.$sql.'</h3>';
+			//echo '<h3 style="position: relative; padding: 20px; background: #EEEEEE; z-index: 999;">'.$sql.'</h3>';
 
 			// executioners enter stage left
 			$results = DB::query( $sql );
