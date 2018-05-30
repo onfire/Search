@@ -17,13 +17,13 @@ Jaedb\Search\SearchPageController:
       JoinTables: ['SiteTree_Live']
       Columns: ['SiteTree_Live.Title','SiteTree_Live.MetaDescription','SiteTree_Live.MenuTitle','SiteTree_Live.Content']
   filters:
-    pub_before:
-      Label: 'Published before'
-      Column: 'PublishDate'
+    updated_before:
+      Label: 'Updated before'
+      Column: 'LastEdited'
       Operator: '<'
-    pub_after:
-      Label: 'Published after'
-      Column: 'PublishDate'
+    updated_after:
+      Label: 'Updated after'
+      Column: 'LastEdited'
       Operator: '>'
     banner_image:
       Label: 'Banner'

@@ -422,34 +422,35 @@ class SearchPageController extends PageController {
 			 **/
 			if ($filters){
 				foreach ($filters as $filter){
+						
+					// Identify which table has the column which we're trying to filter by
+					$table_with_column = null;
+					if (isset($type['JoinTables'])){
+						$tables_to_check = $type['JoinTables'];
+					} else {
+						$tables_to_check = [];
+					}
+					$tables_to_check[] = $type['Table'];
+
+					foreach ($tables_to_check as $table_to_check){
+						$column_exists_query = DB::query( "SHOW COLUMNS FROM \"".$table_to_check."\" LIKE '".$filter['Column']."'" );				
+
+						foreach ($column_exists_query as $column){
+							$table_with_column = $table_to_check;
+						}
+					}
+
+					// Not anywhere in this type's table joins, so we can't search this particular type
+					if (!$table_with_column){
+						continue 2;
+					}
+
 
 					/**
 					 * A specific table has been configured. We need to
 					 * treat this as a relational filter (ie Page.Author; has_one)
 					 **/
 					if (isset($filter['Table'])){
-						
-						// Identify which table has the column which we need to filter by
-						$table_with_column = null;
-						if (isset($type['JoinTables'])){
-							$tables_to_check = $type['JoinTables'];
-						} else {
-							$tables_to_check = [];
-						}
-						$tables_to_check[] = $type['Table'];
-
-						foreach ($tables_to_check as $table_to_check){
-							$column_exists_query = DB::query( "SHOW COLUMNS FROM \"".$table_to_check."\" LIKE '".$filter['Column']."'" );				
-
-							foreach ($column_exists_query as $column){
-								$table_with_column = $table_to_check;
-							}
-						}
-
-						// Not anywhere in this type's table joins, so we can't search this particular type
-						if (!$table_with_column){
-							continue 2;
-						}
 
 						// join the relationship table to our record(s)
 						$joins.= "LEFT JOIN \"".$filter['Table']."\" ON \"".$filter['Table']."\".\"ID\" = \"".$table_with_column."\".\"".$filter['Column']."\"";
@@ -480,8 +481,10 @@ class SearchPageController extends PageController {
 						 * This particular type needs to join with other parent tables to
 						 * form a complete, and searchable row
 						 **/
-						if (isset($filter['JoinTables'])){
-							// TODO
+						if (isset($type['JoinTables'])){
+							foreach ($type['JoinTables'] as $join_table){
+								//$joins.= "LEFT JOIN \"".$type['Table']."\" ON \"".$join_table."\".\"ID\" = \"".$type['Table']."\".\"ID\"";
+							}
 						}
 						
 						if (is_array($filter['Value'])){
@@ -492,11 +495,11 @@ class SearchPageController extends PageController {
 								}
 								$valuesString.= "'".$value."'";
 							}
-						}else{
+						} else {
 							$valuesString = $filter['Value'];
 						}
 						
-						$where.= "\"".$type['Table']."\".\"".$filter['Column']."\" ".$filter['Operator']." ". $valuesString ."";
+						$where.= "\"".$table_with_column."\".\"".$filter['Column']."\" ".$filter['Operator']." '".$valuesString ."'";
 					
 						// close our wrapper
 						$where.= ')';
