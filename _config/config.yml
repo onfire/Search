@@ -6,11 +6,6 @@ SilverStripe\Control\Controller:
     - Jaedb\Search\SearchControllerExtension
 Jaedb\Search\SearchPageController:
   types:
-    docs:
-      Label: 'Documents'
-      ClassName: 'SilverStripe\Assets\File'
-      Table: 'File_Live'
-      Columns: ['File_Live.Title','File_Live.Description','File_Live.Name']
     pages:
       Label: 'Pages'
       ClassName: 'Page'
@@ -19,20 +14,3 @@ Jaedb\Search\SearchPageController:
         SiteTree_Live.ShowInSearch: '1'
       JoinTables: ['SiteTree_Live']
       Columns: ['SiteTree_Live.Title','SiteTree_Live.MetaDescription','SiteTree_Live.MenuTitle','SiteTree_Live.Content']
-  filters:
-    updated_before:
-      Label: 'Updated before'
-      Column: 'LastEdited'
-      Operator: '<'
-    updated_after:
-      Label: 'Updated after'
-      Column: 'LastEdited'
-      Operator: '>'
-    banner_image:
-      Label: 'Banner'
-      ClassName: 'SilverStripe\Assets\Image'
-      Table: 'File_Live'
-      Column: 'BannerImageID'
-      Filters: 
-        ParentID: '1'
-      Operator: '='
