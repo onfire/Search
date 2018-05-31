@@ -255,90 +255,152 @@ class SearchPageController extends PageController {
 			/**
 			 * Apply filtering
 			 **/
+			$relations_sql = '';
+
 			if ($filters){
 				foreach ($filters as $filter){
-						
-					// Identify which table has the column which we're trying to filter by
-					$table_with_column = null;
-					if (isset($type['JoinTables'])){
-						$tables_to_check = $type['JoinTables'];
-					} else {
-						$tables_to_check = [];
-					}
-					$tables_to_check[] = $type['Table'];
 
-					foreach ($tables_to_check as $table_to_check){
-						$column_exists_query = DB::query( "SHOW COLUMNS FROM \"".$table_to_check."\" LIKE '".$filter['Column']."'" );				
+					// Apply filters, based on filter structure
+					switch ($filter['Structure']){
 
-						foreach ($column_exists_query as $column){
-							$table_with_column = $table_to_check;
-						}
-					}
+						/**
+						 * Simple column value filter
+						 **/
+						case 'db':
 
-					// Not anywhere in this type's table joins, so we can't search this particular type
-					if (!$table_with_column){
-						continue 2;
-					}
-
-
-					/**
-					 * A specific table has been configured. We need to
-					 * treat this as a relational filter (ie Page.Author; has_one)
-					 **/
-					if (isset($filter['Table'])){
-
-						// join the relationship table to our record(s)
-						$joins.= "LEFT JOIN \"".$filter['Table']."\" ON \"".$filter['Table']."\".\"ID\" = \"".$table_with_column."\".\"".$filter['Column']."\"";
-						
-						if (is_array($filter['Value'])){
-							$ids = '';
-							foreach ($filter['Value'] as $id){
-								if ($ids != ''){
-									$ids.= ',';
-								}
-								$ids.= "'".$id."'";
+							// Identify which table has the column which we're trying to filter by
+							$table_with_column = null;
+							if (isset($type['JoinTables'])){
+								$tables_to_check = $type['JoinTables'];
+							} else {
+								$tables_to_check = [];
 							}
-						} else {
-							$ids = $filter['Value'];
-						}
-						$where.= ' AND ('."\"".$table_with_column."\".\"".$filter['Column']."\" IN (". $ids .")".')';
+							$tables_to_check[] = $type['Table'];
 
-					/**
-					 * Not relational, so just filter on the subject's table; a simple
-					 * WHERE clause (ie Page.Title; db)
-					 **/
-					} else {
-				
-						// open our wrapper
-						$where.= ' AND (';
+							foreach ($tables_to_check as $table_to_check){
+								$column_exists_query = DB::query( "SHOW COLUMNS FROM \"".$table_to_check."\" LIKE '".$filter['Column']."'" );				
+
+								foreach ($column_exists_query as $column){
+									$table_with_column = $table_to_check;
+								}
+							}
+
+							// Not anywhere in this type's table joins, so we can't search this particular type
+							if (!$table_with_column){
+								continue 2;
+							}
+					
+							// open our wrapper
+							$where.= ' AND (';
+							
+							/**
+							 * This particular type needs to join with other parent tables to
+							 * form a complete, and searchable row
+							 **/
+							if (isset($type['JoinTables'])){
+								foreach ($type['JoinTables'] as $join_table){
+									//$joins.= "LEFT JOIN \"".$type['Table']."\" ON \"".$join_table."\".\"ID\" = \"".$type['Table']."\".\"ID\"";
+								}
+							}
+							
+							if (is_array($filter['Value'])){
+								$valuesString = '';
+								foreach ($filter['Value'] as $value){
+									if ($valuesString != ''){
+										$valuesString.= ',';
+									}
+									$valuesString.= "'".$value."'";
+								}
+							} else {
+								$valuesString = $filter['Value'];
+							}
+							
+							$where.= "\"".$table_with_column."\".\"".$filter['Column']."\" ".$filter['Operator']." '".$valuesString ."'";
+						
+							// close our wrapper
+							$where.= ')';
+
+							break;
+
+						/**
+						 * Simple relational filter (ie Page.Author)
+						 **/
+						case 'has_one':
+							
+							// Identify which table has the column which we're trying to filter by
+							$table_with_column = null;
+							if (isset($type['JoinTables'])){
+								$tables_to_check = $type['JoinTables'];
+							} else {
+								$tables_to_check = [];
+							}
+							$tables_to_check[] = $type['Table'];
+
+							foreach ($tables_to_check as $table_to_check){
+								$column_exists_query = DB::query( "SHOW COLUMNS FROM \"".$table_to_check."\" LIKE '".$filter['Column']."'" );				
+
+								foreach ($column_exists_query as $column){
+									$table_with_column = $table_to_check;
+								}
+							}
+
+							// Not anywhere in this type's table joins, so we can't search this particular type
+							if (!$table_with_column){
+								continue 2;
+							}
+
+							// join the relationship table to our record(s)
+							$joins.= "LEFT JOIN \"".$filter['Table']."\" ON \"".$filter['Table']."\".\"ID\" = \"".$table_with_column."\".\"".$filter['Column']."\"";
+							
+							if (is_array($filter['Value'])){
+								$ids = '';
+								foreach ($filter['Value'] as $id){
+									if ($ids != ''){
+										$ids.= ',';
+									}
+									$ids.= "'".$id."'";
+								}
+							} else {
+								$ids = $filter['Value'];
+							}
+							$where.= ' AND ('."\"".$table_with_column."\".\"".$filter['Column']."\" IN (". $ids .")".')';
+
+							break;
 						
 						/**
-						 * This particular type needs to join with other parent tables to
-						 * form a complete, and searchable row
+						 * Complex relational filter (ie Page.Tags)
 						 **/
-						if (isset($type['JoinTables'])){
-							foreach ($type['JoinTables'] as $join_table){
-								//$joins.= "LEFT JOIN \"".$type['Table']."\" ON \"".$join_table."\".\"ID\" = \"".$type['Table']."\".\"ID\"";
-							}
-						}
-						
-						if (is_array($filter['Value'])){
-							$valuesString = '';
-							foreach ($filter['Value'] as $value){
-								if ($valuesString != ''){
-									$valuesString.= ',';
+						case 'many_many':
+
+							// Make sure this type has a relationship to this filter object
+							if (isset($filter['JoinTables'][$type['Key']])){
+
+								$filter_join = $filter['JoinTables'][$type['Key']];
+
+								$joins.= "LEFT JOIN \"".$filter_join['Table']."\" ON \"".$type['Table']."\".\"ID\" = \"".$filter_join['Column']."\"";
+							
+								if (is_array($filter['Value'])){
+									$ids = '';
+									foreach ($filter['Value'] as $id){
+										if ($ids != ''){
+											$ids.= ',';
+										}
+										$ids.= "'".$id."'";
+									}
+								} else {
+									$ids = $filter['Value'];
 								}
-								$valuesString.= "'".$value."'";
+
+								$relations_sql.= "\"".$filter_join['Table']."\".\"".$filter['Table']."ID\" IN (". $ids .")";
 							}
-						} else {
-							$valuesString = $filter['Value'];
-						}
-						
-						$where.= "\"".$table_with_column."\".\"".$filter['Column']."\" ".$filter['Operator']." '".$valuesString ."'";
-					
-						// close our wrapper
-						$where.= ')';
+
+							break;
 					}
+				}
+
+				// Append any required relations SQL
+				if ($relations_sql !== ''){
+					$where.= ' AND ('.$relations_sql.')';
 				}
 			}
 			
@@ -354,7 +416,7 @@ class SearchPageController extends PageController {
 			$resultIDs = array();
 
 			// add all the result ids to our array
-			foreach( $results as $result ){
+			foreach ($results as $result){
 				$resultIDs[ $result['ResultObject_ID'] ] = $result['ResultObject_ID'];
 			}
 			

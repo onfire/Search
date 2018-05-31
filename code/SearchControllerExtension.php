@@ -2,6 +2,7 @@
 
 namespace Jaedb\Search;
 
+use Exception;
 use SilverStripe\ORM\DataExtension;
 use SilverStripe\Forms\Form;
 use SilverStripe\Forms\FormAction;
@@ -88,21 +89,48 @@ class SearchControllerExtension extends DataExtension {
 					$value = $filters[$key];
 				}
 
-				// Table is defined, so it's a relational-based filter
-				if (isset($filter['Table'])){
+				switch ($filter['Structure']){
+					
+					/**
+					 * Plain column value field
+					 **/
+					case 'db':
+						$fields->push(TextField::create($key, $filter['Label'], $value));
+						break;
 
-					$source = $filter['ClassName']::get();
+					/**
+					 * Simple relation field
+					 **/
+					case 'has_one':
+						$source = $filter['ClassName']::get();
 
-					// We need to apply a filter to the displayed relational options (based on config)
-					if (isset($filter['Filters'])){
-						$source = $source->filter($filter['Filters']);
-					}
+						// We need to apply a filter to the displayed relational options (based on config)
+						if (isset($filter['Filters'])){
+							$source = $source->filter($filter['Filters']);
+						}
 
-					$fields->push(DropdownField::create($key, $filter['Label'], $source->map('ID','Title','All'), $value)->setEmptyString('All '.$filter['Label'].'s'));
+						$empty_string = 'All '.$filter['Label'];
+						if (substr($empty_string, -1) != 's'){
+							$empty_string.= 's';
+						}
 
-				// Non-relational; just a simple column on the subject's record
-				} else {
-					$fields->push(TextField::create($key, $filter['Label'], $value));
+						$fields->push(DropdownField::create($key, $filter['Label'], $source->map('ID','Title','All'), $value)->setEmptyString($empty_string));
+						break;
+
+					/**
+					 * Complex relational field
+					 **/
+					case 'many_many':
+						$source = $filter['ClassName']::get();
+
+						// We need to apply a filter to the displayed relational options (based on config)
+						if (isset($filter['Filters'])){
+							$source = $source->filter($filter['Filters']);
+						}
+
+						$fields->push(CheckboxSetField::create($key, $filter['Label'], $source->map('ID','Title','All'), explode(',',$value)));
+
+						break;
 				}
 			}
 		}
@@ -133,6 +161,12 @@ class SearchControllerExtension extends DataExtension {
 	 **/
 	public function doSearchForm($data, $form){
 
+		$page = SearchPage::get()->first();
+		if (!$page){
+			throw new Exception("The required SearchPage record does not exist");
+			die();
+		}
+
 		$filters_available = SearchPageController::get_filters_available();
 
 		$vars = '';
@@ -158,6 +192,6 @@ class SearchControllerExtension extends DataExtension {
 			}
 		}
 
-		return $this->owner->redirect(SearchPage::get()->first()->Link().$vars);		
+		return $this->owner->redirect($page->Link().$vars);		
 	}
 }

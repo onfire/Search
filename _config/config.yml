@@ -9,6 +9,7 @@ Jaedb\Search\SearchPageController:
     pages:
       Label: 'Pages'
       ClassName: 'Page'
+      ClassNameShort: 'Page'
       Table: 'Page_Live'
       Filters: 
         SiteTree_Live.ShowInSearch: '1'
