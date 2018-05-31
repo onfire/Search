@@ -11,6 +11,7 @@ use SilverStripe\Forms\TextField;
 use SilverStripe\Forms\CheckboxSetField;
 use SilverStripe\Forms\DropdownField;
 use SilverStripe\Forms\HiddenField;
+use SilverStripe\View\Requirements;
 
 class SearchControllerExtension extends DataExtension {
 	
@@ -18,6 +19,11 @@ class SearchControllerExtension extends DataExtension {
 		'SearchForm',
 		'MiniSearchForm'
 	);
+
+	public static function init(){
+		parent::init();
+		Requirements::css('/resources/jaedb/search/css/Search.css');
+	}
 	
 
 	/**
@@ -44,7 +50,7 @@ class SearchControllerExtension extends DataExtension {
 			$name = 'MiniSearchForm', 
 			$fields = $fields,
 			$actions = $actions
-		);
+		)->addExtraClass('search-form search-mini-form');
 		
         return $form;
 	}
@@ -146,7 +152,7 @@ class SearchControllerExtension extends DataExtension {
 			$name = 'SearchForm', 
 			$fields = $fields,
 			$actions = $actions
-		);
+		)->addExtraClass('search-form');
 		
         return $form;
 	}

@@ -1,0 +1,25 @@
+
+.search-form {
+	
+}
+
+.search-result .details {
+	list-style-type: none;
+	margin: 0;
+	padding: 0;
+	color: #CCCCCC;
+}
+
+.search-result .details > li {
+	list-style-type: none;
+	padding-left: 20px;
+	position: relative;
+	display: inline-block;
+}
+
+.search-result .details > li:before {
+	list-style-type: none;
+	padding-left: 20px;
+	content: '&bull;';
+	display: block;
+}
