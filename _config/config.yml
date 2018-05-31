@@ -1,17 +1,59 @@
 ---
 Name: search
+Before:
+    - '#site'
 ---
 SilverStripe\Control\Controller:
   extensions:
     - Jaedb\Search\SearchControllerExtension
 Jaedb\Search\SearchPageController:
-  types:
-    pages:
-      Label: 'Pages'
-      ClassName: 'Page'
-      ClassNameShort: 'Page'
-      Table: 'Page_Live'
-      Filters: 
-        SiteTree_Live.ShowInSearch: '1'
-      JoinTables: ['SiteTree_Live']
-      Columns: ['SiteTree_Live.Title','SiteTree_Live.MetaDescription','SiteTree_Live.MenuTitle','SiteTree_Live.Content']
+  # types:
+  #   docs:
+  #     Label: 'Documents'
+  #     ClassName: 'SilverStripe\Assets\File'
+  #     ClassNameShort: 'File'
+  #     Table: 'File_Live'
+  #     Filters: 
+  #       File_Live.ShowInSearch: '1'
+  #     Columns: ['File_Live.Title','File_Live.Description','File_Live.Name']
+  #   pages:
+  #     Label: 'Pages'
+  #     ClassName: 'Page'
+  #     ClassNameShort: 'Page'
+  #     Table: 'Page_Live'
+  #     Filters: 
+  #       SiteTree_Live.ShowInSearch: '1'
+  #     JoinTables: ['SiteTree_Live']
+  #     Columns: ['SiteTree_Live.Title','SiteTree_Live.MetaDescription','SiteTree_Live.MenuTitle','SiteTree_Live.Content']
+  # filters:
+  #   edited_before:
+  #     Structure: 'db'
+  #     Label: 'Edited before'
+  #     Column: 'LastEdited'
+  #     Operator: '<'
+  #   edited_after:
+  #     Structure: 'db'
+  #     Label: 'Edited after'
+  #     Column: 'LastEdited'
+  #     Operator: '>'
+  #   tags:
+  #     Structure: 'many_many'
+  #     Label: 'Tags'
+  #     ClassName: 'Tag'
+  #     Table: 'Tag'
+  #     JoinTables:
+  #       docs: 
+  #         Table: 'File_Tags'
+  #         Column: 'FileID'
+  #       pages: 
+  #         Table: 'Page_Tags'
+  #         Column: 'PageID'
+  #   related_document:
+  #     Structure: 'has_one'
+  #     Label: 'Related document'
+  #     ClassName: 'SilverStripe\Assets\File'
+  #     Table: 'File_Live'
+  #     Column: 'RelatedDocumentID'
+  #     Filters: 
+  #       ParentID: '1'
+  #     Operator: '='
