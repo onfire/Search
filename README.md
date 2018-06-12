@@ -14,19 +14,38 @@ The built-in SilverStripe search form is a very simple search engine. This plugi
 * Run `dev/build` to instansiate your new configuration
 
 
+# Configuration
+* `types`: associative list of object types to search
+  * `Label`: front-end field label
+  * `Table`: the object's primary table (note `_Live` suffix for versioned objects)
+  * `ClassName`: full ClassName
+  * `ClassNameShort`: namespaced ClassName
+  * `Filters`: a list of filters to apply pre-search (maps to `DataList->Filter(key => value)`)
+  * `Columns`: columns to search for query string matches (format `Table.Column`)
+* `filters`: associative list of possible filters
+  * `Structure`: defines the filter's relational structure (must be one of `db`, `has_one` or `has_many`)
+  * `Label`: front-end field label
+  * `Table`: relational subject's table
+  * `Column`: column to filter on
+  * `Operator`: SQL filter operator (ie `>`, `=`)
+  * `JoinTables`: associative list of relationship mappings (use the `key` from the `types` array)
+    * `Table`: relational join table
+    * `Column`: column to join by
+
+
 # Example configuration
 
 ```
 Jaedb\Search\SearchPageController:
   types:
     docs:
-      Label: 'Documents'						# For display in the search form
-      Table: 'File_Live'						# The object's primary table (note _Live for versioned objects)
-      ClassName: 'SilverStripe\Assets\File'		# As per the table's ClassName column
-      ClassNameShort: 'File'					# Namespaced classname; used when joining relationships
-      Filters:									# List of any filters you want to apply pre-search (maps to DataList->Filter(key => value))
+      Label: 'Documents'
+      Table: 'File_Live'
+      ClassName: 'SilverStripe\Assets\File'
+      ClassNameShort: 'File'
+      Filters:
         File_Live.ShowInSearch: '1'
-      Columns: ['File_Live.Title','File_Live.Description','File_Live.Name']		# Columns to search for query string matches
+      Columns: ['File_Live.Title','File_Live.Description','File_Live.Name']
     pages:
       Label: 'Pages'
       ClassName: 'Page'
@@ -35,13 +54,13 @@ Jaedb\Search\SearchPageController:
       Filters: 
         SiteTree_Live.ShowInSearch: '1'
       JoinTables: ['SiteTree_Live']
-      Columns: ['SiteTree_Live.Title','SiteTree_Live.MetaDescription','SiteTree_Live.MenuTitle','SiteTree_Live.Content']
+      Columns: ['SiteTree_Live.Title','SiteTree_Live.MenuTitle','SiteTree_Live.Content']
   filters:
-    updated_before:								# Unique label for filter
-      Structure: 'db'							# Type of filter structure (db, has_one or many_many)
-      Label: 'Updated before'					# For display in the search form
-      Column: 'LastEdited'						# Column in each type's table
-      Operator: '<'								# Filter operator
+    updated_before:
+      Structure: 'db'
+      Label: 'Updated before'
+      Column: 'LastEdited'
+      Operator: '<'
     updated_after:
       Structure: 'db'
       Label: 'Updated after'
@@ -51,11 +70,11 @@ Jaedb\Search\SearchPageController:
       Structure: 'many_many'
       Label: 'Tags'
       ClassName: 'Tag'
-      Table: 'Tag'								# Table containing related records
-      JoinTables:								# List of relationship mappings for each type
+      Table: 'Tag'
+      JoinTables:
         docs: 
-          Table: 'File_Tags'					# Join table
-          Column: 'FileID'						# Join column
+          Table: 'File_Tags'
+          Column: 'FileID'
         pages: 
           Table: 'Page_Tags'
           Column: 'PageID'
