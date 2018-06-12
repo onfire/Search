@@ -1,7 +1,7 @@
 
 <div class="search-results-page">
 
-	$SearchForm
+	$AdvancedSearchForm
 
 	<% include SearchSummary %>
 

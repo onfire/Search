@@ -16,16 +16,16 @@ class SearchControllerExtension extends DataExtension {
 	
 	private static $allowed_actions = array(
 		'SearchForm',
-		'MiniSearchForm'
+		'AdvancedSearchForm'
 	);
 	
 
 	/**
-	 * Mini search form (ie in menus and footers)
+	 * Default form (ie in menus and footers)
 	 *
 	 * @return Form
 	 **/
-	public function MiniSearchForm(){
+	public function SearchForm(){
 		
 		// create our search form fields
         $fields = FieldList::create();
@@ -41,7 +41,7 @@ class SearchControllerExtension extends DataExtension {
 		// now build the actual form object
         $form = Form::create(
 			$controller = $this->owner,
-			$name = 'MiniSearchForm', 
+			$name = 'SearchForm', 
 			$fields = $fields,
 			$actions = $actions
 		)->addExtraClass('search-form search-mini-form');
@@ -51,11 +51,11 @@ class SearchControllerExtension extends DataExtension {
 	
 
 	/**
-	 * Build the search form
+	 * Build the advanced search form (ie results page)
 	 *
 	 * @return Form
 	 **/
-	public function SearchForm(){
+	public function AdvancedSearchForm(){
 		
 		// create our search form fields
         $fields = FieldList::create();
@@ -106,7 +106,13 @@ class SearchControllerExtension extends DataExtension {
 					 * Plain column value field
 					 **/
 					case 'db':
-						$fields->push(TextField::create($key, $filter['Label'], $value));
+						if (isset($filter['Field'])){
+							$field_type = $filter['Field'];
+						} else {			
+							$field_type = "SilverStripe\Forms\TextField";				
+						}
+						
+						$fields->push($field_type::create($key, $filter['Label'], $value));
 						break;
 
 					/**
@@ -168,7 +174,7 @@ class SearchControllerExtension extends DataExtension {
 		// now build the actual form object
         $form = Form::create(
 			$controller = $this->owner,
-			$name = 'SearchForm', 
+			$name = 'AdvancedSearchForm', 
 			$fields = $fields,
 			$actions = $actions
 		)->addExtraClass('search-form');

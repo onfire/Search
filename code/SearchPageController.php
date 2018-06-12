@@ -18,16 +18,6 @@ class SearchPageController extends PageController {
 	private static $sort;
 	private static $results;
 	
-	// setup the actions to expose our engine
-	private static $allowed_actions = array(
-		'SearchForm'
-	);
-	
-	// setup the search parameters
-	private static $url_handlers = array(
-		'SearchForm' => 'SearchForm'
-	);
-	
 	public function index($request){
 		
 		Requirements::css('/resources/jaedb/search/css/Search.css');
