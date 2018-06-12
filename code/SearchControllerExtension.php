@@ -65,14 +65,25 @@ class SearchControllerExtension extends DataExtension {
 		
 		// classes to search		
 		if ($types_available = SearchPageController::get_types_available()){
-			$source = ['' => 'All types'];
+
+			if ($types = SearchPageController::get_types()){
+				$value = $types;
+				$select_all_types = false;
+			} else {
+				$value = [];
+				$select_all_types = true;
+			}
 
 			// Construct the array of options for the field
 			foreach ($types_available as $key => $type){
 				$source[$key] = $type['Label'];
+
+				if ($select_all_types){
+					$value[] = $key;
+				}
 			}
 
-			$fields->push(CheckboxSetField::create('types', 'Types', $source, SearchPageController::get_types()));
+			$fields->push(CheckboxSetField::create('types', 'Types', $source, $value));
 		}
 		
 		// Filters that we need to map
@@ -135,6 +146,20 @@ class SearchControllerExtension extends DataExtension {
 			}
 		}
 		
+		// Sorting rules	
+		if ($sorts_available = SearchPageController::get_sorts_available()){
+
+			// Default to the first option
+			$source = [];
+
+			// Construct the array of options for the field
+			foreach ($sorts_available as $key => $type){
+				$source[$key] = $type['Label'];
+			}
+
+			$fields->push(DropdownField::create('sort', 'Sort', $source, SearchPageController::get_mapped_sort()['Key']));
+		}
+		
 		// create the form actions (we only need a submit button)
         $actions = FieldList::create(
             FormAction::create("doSearchForm")->setTitle("Search")
@@ -174,7 +199,7 @@ class SearchControllerExtension extends DataExtension {
 
 			// Make sure we only carry configured filters
 			// This begins to protect us against malicious use :-)
-			if ((isset($filters_available[$key]) || $key == 'query' || $key == 'types') && $value && $value !== ''){
+			if ((isset($filters_available[$key]) || $key == 'query' || $key == 'types' || $key == 'sort') && $value && $value !== ''){
 
 				// Concat into a URL string
 				if ($vars == ''){

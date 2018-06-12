@@ -13,10 +13,10 @@ class SearchPageController extends PageController {
 	
 	// these statics hold the search data
 	private static $query;
-	private static $filters;
 	private static $types;
+	private static $filters;
+	private static $sort;
 	private static $results;
-	private static $results_url;
 	
 	// setup the actions to expose our engine
 	private static $allowed_actions = array(
@@ -43,6 +43,11 @@ class SearchPageController extends PageController {
 		if (isset($vars['types']) && $vars['types'] != ''){
 			self::set_types(explode(',',$vars['types']));
 			unset($vars['types']);
+		}
+		
+		if (isset($vars['sort']) && $vars['sort'] != ''){
+			self::set_sort($vars['sort']);
+			unset($vars['sort']);
 		}
 
 		self::set_filters($vars);
@@ -83,6 +88,20 @@ class SearchPageController extends PageController {
 
 		return $array;
 	}
+
+	public static function get_sorts_available(){
+		$sorts = Config::inst()->get('Jaedb\Search\SearchPageController', 'sorts');
+		$array = [];
+
+		if ($sorts){
+			foreach ($sorts as $key => $value){
+				$value['Key'] = $key;
+				$array[$key] = $value;
+			}
+		}
+
+		return $array;
+	}
 	
 	public static function get_types(){
 		return self::$types;
@@ -111,25 +130,25 @@ class SearchPageController extends PageController {
 		return self::$filters;
 	}
 	
-	public static function set_filters( $filters ){
+	public static function set_filters($filters){
 		self::$filters = $filters;
 	}
 	
 	public static function get_mapped_filters(){
 		$filters_available = self::get_filters_available();
-		$filters = [];
+		$mapped_filters = [];
 
 		foreach (self::get_filters() as $key => $value){
 			if (isset($filters_available[$key])){
 				$filter = $filters_available[$key];
 				$filter['Value'] = $value;
-				$filters[] = $filter;
+				$mapped_filters[] = $filter;
 			}
 		}
-		return $filters;
+		return $mapped_filters;
 	}
 	
-	public static function get_query( $mysqlSafe = false ){
+	public static function get_query($mysqlSafe = false){
 		$query = self::$query;
 		if( $mysqlSafe ){
 			$query = str_replace("'", "\'", $query);
@@ -139,15 +158,35 @@ class SearchPageController extends PageController {
 		return $query;
 	}
 	
-	public static function set_query( $query = null ){
+	public static function set_query($query = null){
 		self::$query = $query;
+	}
+	
+	public static function get_sort(){
+		return self::$sort;
+	}
+	
+	public static function get_mapped_sort(){
+		$sorts_available = self::get_sorts_available();
+		$sort = self::get_sort();
+
+		// If no sort, assume the first item
+		if (!$sort){
+			return reset($sorts_available);
+		} else {
+			return $sorts_available[$sort];
+		}
+	}
+	
+	public static function set_sort($sort){
+		self::$sort = $sort;
 	}
 	
 	public static function get_results(){
 		return self::$results;
 	}
 	
-	public static function set_results( $results ){
+	public static function set_results($results){
 		self::$results = $results;
 	}
 	
@@ -168,6 +207,16 @@ class SearchPageController extends PageController {
 	 **/
 	public function Results(){
 		return self::get_results();
+	}
+
+	
+	/**
+	 * Get the search query
+	 * This is just an alias to get my static variable
+	 * @return ArrayList
+	 **/
+	public function Sort(){
+		return self::get_sort();
 	}
 	
 	
@@ -408,13 +457,14 @@ class SearchPageController extends PageController {
 			}
 			
 			
-			// compile our sql string
+			// Compile our sql string
 			$sql.= $joins;
 			$sql.= $where;
 
-			//echo '<h3 style="position: relative; padding: 20px; background: #EEEEEE; z-index: 999;">'.$sql.'</h3>';
+			// Debugging
+			// echo '<h3 style="position: relative; padding: 20px; background: #EEEEEE; z-index: 999;">'.$sql.'</h3>';
 
-			// executioners enter stage left
+			// Eexecutioners enter stage left
 			$results = DB::query( $sql );
 			$resultIDs = array();
 
@@ -430,9 +480,15 @@ class SearchPageController extends PageController {
 			}
 		}
 		
-		// sort our results
-		$allResults->removeDuplicates('ID');
-		$allResults = $allResults->Sort('PublishDate DESC');
+		// Apply sorting
+		$sort = self::get_mapped_sort()['Sort'];		
+		$sort = str_replace("'", "\'", $sort);
+		$sort = str_replace('"', '\"', $sort);
+		$sort = str_replace('`', '\`', $sort);
+		$allResults = $allResults->Sort($sort);
+
+		// Remove duplicates
+		$allResults->removeDuplicates('Record_ID');
 		
 		// load into a paginated list. To change the items per page, set via the template (ie Results.setPageLength(20))
 		$paginatedItems = PaginatedList::create($allResults, $this->request);
