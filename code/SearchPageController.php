@@ -452,20 +452,24 @@ class SearchPageController extends PageController {
 			$sql.= $where;
 
 			// Debugging
-			// echo '<h3 style="position: relative; padding: 20px; background: #EEEEEE; z-index: 999;">'.$sql.'</h3>';
+			//echo '<h3 style="position: relative; padding: 20px; background: #EEEEEE; z-index: 999;">'.$sql.'</h3>';
 
-			// Eexecutioners enter stage left
-			$results = DB::query( $sql );
+			// Eexecutioner enter stage left
+			$results = DB::query($sql);
 			$resultIDs = array();
 
-			// add all the result ids to our array
+			// Add all the result ids to our array
 			foreach ($results as $result){
-				$resultIDs[ $result['ResultObject_ID'] ] = $result['ResultObject_ID'];
+
+				// Make sure we're not already a result
+				if (!isset($resultIDs[$result['ResultObject_ID']])){
+					$resultIDs[$result['ResultObject_ID']] = $result['ResultObject_ID'];
+				}
 			}
 			
-			// convert our sql result into SilverStripe objects, of the appropriate class
+			// Convert our SQL results into SilverStripe objects of the appropriate class
 			if ($resultIDs){
-				$resultObjects = $type['ClassName']::get()->filter('ID', $resultIDs );
+				$resultObjects = $type['ClassName']::get()->filter(['ID' => $resultIDs]);
 				$allResults->merge($resultObjects);
 			}
 		}
@@ -478,7 +482,7 @@ class SearchPageController extends PageController {
 		$allResults = $allResults->Sort($sort);
 
 		// Remove duplicates
-		$allResults->removeDuplicates('Record_ID');
+		//$allResults->removeDuplicates('ID');
 		
 		// load into a paginated list. To change the items per page, set via the template (ie Results.setPageLength(20))
 		$paginatedItems = PaginatedList::create($allResults, $this->request);

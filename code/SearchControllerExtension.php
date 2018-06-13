@@ -9,6 +9,7 @@ use SilverStripe\Forms\FormAction;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\TextField;
 use SilverStripe\Forms\CheckboxSetField;
+use SilverStripe\Forms\ListboxField;
 use SilverStripe\Forms\DropdownField;
 use SilverStripe\Forms\HiddenField;
 
@@ -107,12 +108,12 @@ class SearchControllerExtension extends DataExtension {
 					 **/
 					case 'db':
 						if (isset($filter['Field'])){
-							$field_type = $filter['Field'];
+							$field = $filter['Field'];
 						} else {			
-							$field_type = "SilverStripe\Forms\TextField";				
+							$field = "SilverStripe\Forms\TextField";				
 						}
 						
-						$fields->push($field_type::create($key, $filter['Label'], $value));
+						$fields->push($field::create($key, $filter['Label'], $value));
 						break;
 
 					/**
@@ -145,7 +146,7 @@ class SearchControllerExtension extends DataExtension {
 							$source = $source->filter($filter['Filters']);
 						}
 
-						$fields->push(CheckboxSetField::create($key, $filter['Label'], $source->map('ID','Title','All'), explode(',',$value)));
+						$fields->push(ListboxField::create($key, $filter['Label'], $source->map('ID','Title','All'), explode(',',$value)));
 
 						break;
 				}
