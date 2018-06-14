@@ -17,14 +17,13 @@
 	},
     "extra": {
         "expose": [
-            "css"
+            "client"
         ]
     },
 	"require": {
 		"silverstripe/cms": "^4",
 		"silverstripe/framework": "^4",
-        "silverstripe/vendor-plugin": "^1",
-        "silverstripe/tagfield": "^2"
+        "silverstripe/vendor-plugin": "^1"
 	},
 	"minimum-stability": "dev"
 }

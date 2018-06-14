@@ -12,6 +12,7 @@ use SilverStripe\Forms\CheckboxSetField;
 use SilverStripe\Forms\ListboxField;
 use SilverStripe\Forms\DropdownField;
 use SilverStripe\Forms\HiddenField;
+use SilverStripe\View\Requirements;
 
 class SearchControllerExtension extends DataExtension {
 	
@@ -146,7 +147,7 @@ class SearchControllerExtension extends DataExtension {
 							$source = $source->filter($filter['Filters']);
 						}
 
-						$fields->push(ListboxField::create($key, $filter['Label'], $source->map('ID','Title','All'), explode(',',$value)));
+						$fields->push(ListboxField::create($key, $filter['Label'], $source->map('ID','Title','All'), explode(',',$value))->addExtraClass('chosen-select'));
 
 						break;
 				}

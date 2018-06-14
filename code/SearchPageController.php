@@ -8,6 +8,7 @@ use SilverStripe\ORM\PaginatedList;
 use SilverStripe\ORM\DB;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\View\Requirements;
+use SilverStripe\Control\Director;
 
 class SearchPageController extends PageController {
 	
@@ -20,7 +21,13 @@ class SearchPageController extends PageController {
 	
 	public function index($request){
 		
-		Requirements::css('/resources/jaedb/search/css/Search.css');
+		if (Director::isLive()){
+			Requirements::css('/resources/jaedb/search/client/Search.min.css');
+			Requirements::javascript('/resources/jaedb/search/client/Search.min.js');
+		} else {
+			Requirements::css('/resources/jaedb/search/client/Search.css');
+			Requirements::javascript('/resources/jaedb/search/client/Search.js');
+		}
 		
 		// get the parameters and variables of this request (ie the query and filters)
 		$vars = $request->requestVars();
