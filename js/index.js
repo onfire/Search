@@ -1,7 +1,7 @@
 
 require('../scss/index.scss');
 require('chosen-js');
-require('../node_modules/chosen-js/chosen.min.css');
+require('../node_modules/chosen-js/chosen.css');
 
 $(document).ready( function(){
 	if ($('.search-form').length > 0){
