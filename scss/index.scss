@@ -3,31 +3,35 @@
 	
 }
 
-.search-result .title a {
-	text-decoration: none;
-	color: inherit
-}
+.search-result {
+	.title {
+		a {
+			text-decoration: none;
+			color: inherit;
 
-.search-result .title a:hover {
-	text-decoration: underline;
-}
+			&:hover {
+				text-decoration: underline;
+			}
+		}
+	}
 
-.search-result .details {
-	list-style-type: none;
-	margin: 0;
-	padding: 0;
-	color: #CCCCCC;
-}
+	.details {
+		list-style-type: none;
+		margin: 0;
+		padding: 0;
+		color: #CCCCCC;
 
-.search-result .details > li {
-	list-style-type: none;
-	display: inline-block;
-}
+		& > li {
+			list-style-type: none;
+			display: inline-block;
 
-.search-result .details > li:not(:first-child):before {
-	content: '\2022';
-	display: inline-block;
-	padding: 0 3px 0 4px;
-	vertical-align: top;
-	margin-top: -2px;
+			&:not(:first-child):before {
+				content: '\2022';
+				display: inline-block;
+				padding: 0 3px 0 4px;
+				vertical-align: top;
+				margin-top: -2px;
+			}
+		}
+	}
 }

@@ -46,7 +46,7 @@ class SearchControllerExtension extends DataExtension {
 			$name = 'SearchForm', 
 			$fields = $fields,
 			$actions = $actions
-		)->addExtraClass('search-form search-mini-form');
+		)->addExtraClass('search-form');
 		
         return $form;
 	}
@@ -179,7 +179,7 @@ class SearchControllerExtension extends DataExtension {
 			$name = 'AdvancedSearchForm', 
 			$fields = $fields,
 			$actions = $actions
-		)->addExtraClass('search-form');
+		)->addExtraClass('search-form advanced-search-form');
 		
         return $form;
 	}

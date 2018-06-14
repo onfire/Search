@@ -19,14 +19,11 @@ var config = {
 	module: {
 		loaders: [
 			{
-				test: require.resolve('jquery'), loader: 'expose-loader?jQuery!expose-loader?$'
-			},
-			{
 				// loading sass asset files
-				test: /\.scss$/,
+				test: /\.s?css$/,
 				loaders: ExtractTextPlugin.extract({
-						fallback: 'style-loader',
-						use: [(dev? 'css-loader?sourceMap': 'css-loader'), (dev? 'sass-loader?sourceMap': 'sass-loader')]
+					fallback: 'style-loader',
+					use: [(dev? 'css-loader?sourceMap': 'css-loader'), (dev? 'sass-loader?sourceMap': 'sass-loader')]
 				})
 			},
 			{
@@ -38,12 +35,7 @@ var config = {
 	},
 	
 	plugins: [
-		new webpack.optimize.OccurrenceOrderPlugin(),
-		new webpack.ProvidePlugin({
-		    $: "jquery",
-		    jQuery: "jquery",
-		    "window.jQuery": "jquery"
-		})
+		new webpack.optimize.OccurrenceOrderPlugin()
 	]
 };
 

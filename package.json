@@ -21,7 +21,6 @@
     "expose-loader": "0.7.3"
   },
   "dependencies": {
-    "jquery": "3.0.0",
     "chosen-js": "1.8.5"
   },
   "scripts": {

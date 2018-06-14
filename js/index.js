@@ -1,10 +1,14 @@
 
 require('../scss/index.scss');
+require('chosen-js');
+require('../node_modules/chosen-js/chosen.min.css');
 
 $(document).ready( function(){
-	$('.search-chosen').chosen({
-		width: "100%"
-	});
+	if ($('.search-form').length > 0){
+		$('.search-form .chosen-select select').chosen({
+			width: "100%"
+		});
+	}
 });
 
 // Start your website!
