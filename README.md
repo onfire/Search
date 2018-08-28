@@ -39,6 +39,11 @@ The built-in SilverStripe search form is a very simple search engine. This plugi
 # Example configuration
 
 ```
+---
+Name: search
+Before:
+    - '#site'
+---
 Jaedb\Search\SearchPageController:
   types:
     docs:
