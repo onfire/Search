@@ -275,14 +275,14 @@ class SearchPageController extends PageController {
                 if ($i > 0) {
                     $where .= ' OR ';
                 }
-                $where .= "\"$column[0]\".\"$column[1]\" LIKE CONCAT('%', '$query', '%')";
+                $where .= "\"$column[0]\".\"$column[1]\" LIKE CONCAT('%', ?, '%')"; // Use a parameterized query
             }
             $where .= ')';
 
             // Apply our type-level filters (if applicable)
             if (isset($type['Filters'])) {
                 foreach ($type['Filters'] as $key => $value) {
-                    $where .= ' AND (' . $key . ' = ' . $value . ')';
+                    $where .= ' AND (' . $key . ' = ?)'; // Use a parameterized query
                 }
             }
 
@@ -294,76 +294,50 @@ class SearchPageController extends PageController {
                     // Apply filters based on filter structure
                     switch ($filter['Structure']) {
                         case 'db':
-
                             $table_with_column = null;
-
                             $tables_to_check = isset($type['JoinTables']) ? $type['JoinTables'] : [];
                             $tables_to_check[] = $type['Table'];
-
                             foreach ($tables_to_check as $table_to_check) {
                                 $column_exists_query = DB::query("SHOW COLUMNS FROM \"$table_to_check\" LIKE '{$filter['Column']}'");
-
                                 foreach ($column_exists_query as $column) {
                                     $table_with_column = $table_to_check;
                                 }
                             }
-
                             if (!$table_with_column) {
                                 continue 2;
                             }
-
                             $where .= ' AND (';
-
                             $valuesString = is_array($filter['Value']) ? "'" . implode("','", $filter['Value']) . "'" : $filter['Value'];
-
-                            $where .= "\"$table_with_column\".\"{$filter['Column']}\" {$filter['Operator']} '$valuesString'";
-
+                            $where .= "\"$table_with_column\".\"{$filter['Column']}\" {$filter['Operator']} ?"; // Use a parameterized query
                             $where .= ')';
-
                             break;
-
                         case 'has_one':
-
                             $table_with_column = null;
-
                             $tables_to_check = isset($type['JoinTables']) ? $type['JoinTables'] : [];
                             $tables_to_check[] = $type['Table'];
-
                             foreach ($tables_to_check as $table_to_check) {
                                 $column_exists_query = DB::query("SHOW COLUMNS FROM \"$table_to_check\" LIKE '{$filter['Column']}'");
-
                                 foreach ($column_exists_query as $column) {
                                     $table_with_column = $table_to_check;
                                 }
                             }
-
                             if (!$table_with_column) {
                                 continue 2;
                             }
-
                             $joins .= "LEFT JOIN \"{$filter['Table']}\" ON \"{$filter['Table']}\".\"ID\" = \"{$table_with_column}.\"{$filter['Column']}\"";
-
                             $ids = is_array($filter['Value']) ? "'" . implode("','", $filter['Value']) . "'" : $filter['Value'];
-
-                            $where .= " AND \"{$table_with_column}.\"{$filter['Column']}\" IN ($ids)";
-
+                            $where .= " AND \"{$table_with_column}.\"{$filter['Column']}\" IN (?)"; // Use a parameterized query
                             break;
-
                         case 'many_many':
                             if (isset($filter['JoinTables'][$type['Key']])) {
                                 $filter_join = $filter['JoinTables'][$type['Key']];
-
                                 $joins .= "LEFT JOIN \"{$filter_join['Table']}\" ON \"{$type['Table']}\".\"ID\" = \"{$filter_join['Column']}\"";
-
                                 $ids = is_array($filter['Value']) ? "'" . implode("','", $filter['Value']) . "'" : $filter['Value'];
-
-                                $relations_sql .= "\"{$filter_join['Table']}\".\"{$filter['Table']}ID\" IN ($ids)";
+                                $relations_sql .= "\"{$filter_join['Table']}\".\"{$filter['Table']}ID\" IN (?)"; // Use a parameterized query
                             }
-
                             break;
                     }
                 }
-
                 // Append any required relations SQL
                 if ($relations_sql !== '') {
                     $where .= ' AND (' . $relations_sql . ')';
@@ -373,8 +347,27 @@ class SearchPageController extends PageController {
             // Compile our SQL string
             $sql .= $joins . $where;
 
-            // Execute the query
-            $results = DB::query($sql);
+            // Prepare the statement with parameters
+            $stmt = DB::prepare($sql);
+
+            // Bind parameters to the statement
+            $params = []; // Collect all parameters for binding
+            $params[] = $query;
+            if (isset($type['Filters'])) {
+                foreach ($type['Filters'] as $value) {
+                    $params[] = $value;
+                }
+            }
+            if ($filters) {
+                foreach ($filter['Value'] as $value) {
+                    $params[] = $value;
+                }
+            }
+            $stmt->execute($params);
+
+            // Fetch the results
+            $results = $stmt->fetchAll();
+
             $resultIDs = [];
 
             // Add all the result IDs to our array
@@ -400,5 +393,6 @@ class SearchPageController extends PageController {
 
         return PaginatedList::create($allResults, $this->request);
     }
+
 
 }
