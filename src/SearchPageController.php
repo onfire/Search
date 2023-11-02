@@ -294,109 +294,70 @@ class SearchPageController extends PageController {
                     // Apply filters based on filter structure
                     switch ($filter['Structure']) {
                         case 'db':
-                            // Identify which table has the column which we're trying to filter by
+
                             $table_with_column = null;
-                            if (isset($type['JoinTables'])){
-                                $tables_to_check = $type['JoinTables'];
-                            } else {
-                                $tables_to_check = [];
-                            }
+
+                            $tables_to_check = isset($type['JoinTables']) ? $type['JoinTables'] : [];
                             $tables_to_check[] = $type['Table'];
 
-                            foreach ($tables_to_check as $table_to_check){
-                                $column_exists_query = DB::query( "SHOW COLUMNS FROM \"".$table_to_check."\" LIKE '".$filter['Column']."'" );
+                            foreach ($tables_to_check as $table_to_check) {
+                                $column_exists_query = DB::query("SHOW COLUMNS FROM \"$table_to_check\" LIKE '{$filter['Column']}'");
 
-                                foreach ($column_exists_query as $column){
+                                foreach ($column_exists_query as $column) {
                                     $table_with_column = $table_to_check;
                                 }
                             }
 
-                            // Not anywhere in this type's table joins, so we can't search this particular type
-                            if (!$table_with_column){
+                            if (!$table_with_column) {
                                 continue 2;
                             }
 
-                            // open our wrapper
-                            $where.= ' AND (';
+                            $where .= ' AND (';
 
-                            if (is_array($filter['Value'])){
-                                $valuesString = '';
-                                foreach ($filter['Value'] as $value){
-                                    if ($valuesString != ''){
-                                        $valuesString.= ',';
-                                    }
-                                    $valuesString.= "'".$value."'";
-                                }
-                            } else {
-                                $valuesString = $filter['Value'];
-                            }
+                            $valuesString = is_array($filter['Value']) ? "'" . implode("','", $filter['Value']) . "'" : $filter['Value'];
 
-                            $where.= "\"".$table_with_column."\".\"".$filter['Column']."\" ".$filter['Operator']." '".$valuesString ."'";
+                            $where .= "\"$table_with_column\".\"{$filter['Column']}\" {$filter['Operator']} '$valuesString'";
 
-                            // close our wrapper
-                            $where.= ')';
+                            $where .= ')';
 
                             break;
+
                         case 'has_one':
-                            // Identify which table has the column which we're trying to filter by
+
                             $table_with_column = null;
-                            if (isset($type['JoinTables'])){
-                                $tables_to_check = $type['JoinTables'];
-                            } else {
-                                $tables_to_check = [];
-                            }
+
+                            $tables_to_check = isset($type['JoinTables']) ? $type['JoinTables'] : [];
                             $tables_to_check[] = $type['Table'];
 
-                            foreach ($tables_to_check as $table_to_check){
-                                $column_exists_query = DB::query( "SHOW COLUMNS FROM \"".$table_to_check."\" LIKE '".$filter['Column']."'" );
+                            foreach ($tables_to_check as $table_to_check) {
+                                $column_exists_query = DB::query("SHOW COLUMNS FROM \"$table_to_check\" LIKE '{$filter['Column']}'");
 
-                                foreach ($column_exists_query as $column){
+                                foreach ($column_exists_query as $column) {
                                     $table_with_column = $table_to_check;
                                 }
                             }
 
-                            // Not anywhere in this type's table joins, so we can't search this particular type
-                            if (!$table_with_column){
+                            if (!$table_with_column) {
                                 continue 2;
                             }
 
-                            // join the relationship table to our record(s)
-                            $joins.= "LEFT JOIN \"".$filter['Table']."\" ON \"".$filter['Table']."\".\"ID\" = \"".$table_with_column."\".\"".$filter['Column']."\"";
+                            $joins .= "LEFT JOIN \"{$filter['Table']}\" ON \"{$filter['Table']}\".\"ID\" = \"{$table_with_column}.\"{$filter['Column']}\"";
 
-                            if (is_array($filter['Value'])){
-                                $ids = '';
-                                foreach ($filter['Value'] as $id){
-                                    if ($ids != ''){
-                                        $ids.= ',';
-                                    }
-                                    $ids.= "'".$id."'";
-                                }
-                            } else {
-                                $ids = $filter['Value'];
-                            }
-                            $where.= ' AND ('."\"".$table_with_column."\".\"".$filter['Column']."\" IN (". $ids .")".')';
+                            $ids = is_array($filter['Value']) ? "'" . implode("','", $filter['Value']) . "'" : $filter['Value'];
+
+                            $where .= " AND \"{$table_with_column}.\"{$filter['Column']}\" IN ($ids)";
+
                             break;
-                        case 'many_many':
-                            // Make sure this type has a relationship to this filter object
-                            if (isset($filter['JoinTables'][$type['Key']])){
 
+                        case 'many_many':
+                            if (isset($filter['JoinTables'][$type['Key']])) {
                                 $filter_join = $filter['JoinTables'][$type['Key']];
 
-                                $joins.= "LEFT JOIN \"".$filter_join['Table']."\" ON \"".$type['Table']."\".\"ID\" = \"".$filter_join['Column']."\"";
+                                $joins .= "LEFT JOIN \"{$filter_join['Table']}\" ON \"{$type['Table']}\".\"ID\" = \"{$filter_join['Column']}\"";
 
-                                if (is_array($filter['Value'])){
-                                    $ids = '';
-                                    foreach ($filter['Value'] as $id){
-                                        if ($ids != ''){
-                                            $ids.= ',';
-                                        }
-                                        $ids.= "'".$id."'";
-                                    }
-                                } else {
-                                    $ids = $filter['Value'];
-                                }
+                                $ids = is_array($filter['Value']) ? "'" . implode("','", $filter['Value']) . "'" : $filter['Value'];
 
-                                $relations_sql.= "\"".$filter_join['Table']."\".\"".$filter['Table']."ID\" IN (". $ids .")";
+                                $relations_sql .= "\"{$filter_join['Table']}\".\"{$filter['Table']}ID\" IN ($ids)";
                             }
 
                             break;
