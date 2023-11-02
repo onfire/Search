@@ -147,7 +147,7 @@ class SearchControllerExtension extends DataExtension {
 							$source = $source->filter($filter['Filters']);
 						}
 
-						$fields->push(ListboxField::create($key, $filter['Label'], $source->map('ID','Title','All'), explode(',', $value ?? ''))->addExtraClass('chosen-select'));
+						$fields->push(ListboxField::create($key, $filter['Label'], $source->map('ID','Title','All'), explode(',', $value))->addExtraClass('chosen-select'));
 
 						break;
 				}
