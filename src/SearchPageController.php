@@ -437,10 +437,7 @@ class SearchPageController extends PageController {
         $sort = str_replace('`', '\`', $sort);
         $allResults = $allResults->Sort($sort);
 
-        // Load into a paginated list. To change the items per page, set via the template (e.g., Results.setPageLength(20))
-        $paginatedItems = PaginatedList::create($allResults, $this->request);
-
-        return $paginatedItems;
+        return PaginatedList::create($allResults, $this->request);
     }
 
 }
