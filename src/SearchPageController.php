@@ -238,116 +238,209 @@ class SearchPageController extends PageController {
 
 		return $completeTypes;	
 	}
-	
-	
+
 	/**
 	 * Have a squiz through our site and find all matches
 	 * @return PaginatedList
 	 **/
-    public function PerformSearch()
-    {
+    public function PerformSearch() {
+        // Get all our search requirements
         $query = self::get_query($mysqlSafe = true);
         $types = self::get_mapped_types();
         $filters = self::get_mapped_filters();
 
+        // Prepare our final result object
         $allResults = ArrayList::create();
 
+        // Loop through all the records we need to look up
         foreach ($types as $type) {
             $sql = '';
             $joins = '';
             $where = '';
-            $sort = '';
 
-            // Use a prepared statement to safely construct your SQL query
-            $sql .= "SELECT \"{$type['Table']}\".\"ID\" AS \"ResultObject_ID\" FROM \"{$type['Table']}\" ";
+            // Result selection: We only need ClassName and ID to fetch the full object (using SilverStripe ORM) once we've got our results
+            $sql .= "SELECT \"" . $type['Table'] . "\".\"ID\" AS \"ResultObject_ID\" FROM \"" . $type['Table'] . "\" ";
 
+            // Join this type with any dependent tables (if applicable)
             if (isset($type['JoinTables'])) {
                 foreach ($type['JoinTables'] as $joinTable) {
-                    $joins .= "LEFT JOIN \"{$joinTable}\" ON \"{$joinTable}\".\"ID\" = \"{$type['Table']}\".\"ID\" ";
+                    $joins .= "LEFT JOIN \"" . $joinTable . "\" ON \"" . $joinTable . "\".\"ID\" = \"" . $type['Table'] . "\".\"ID\" ";
                 }
             }
 
+            // Query term: We search each column for this type for the provided query string
             $where .= ' WHERE (';
             foreach ($type['Columns'] as $i => $column) {
                 $column = explode('.', $column);
                 if ($i > 0) {
                     $where .= ' OR ';
                 }
-                // Use placeholders in the prepared statement
-                $where .= "\"{$column[0]}\".\"{$column[1]}\" LIKE CONCAT('%', :query, '%')";
+                $where .= "\"$column[0]\".\"$column[1]\" LIKE CONCAT('%', '$query', '%')";
             }
             $where .= ')';
 
+            // Apply our type-level filters (if applicable)
             if (isset($type['Filters'])) {
                 foreach ($type['Filters'] as $key => $value) {
-                    $where .= ' AND (' . $key . ' = :filterValue)';
+                    $where .= ' AND (' . $key . ' = ' . $value . ')';
                 }
             }
 
+            // Apply filtering
             $relations_sql = '';
 
             if ($filters) {
                 foreach ($filters as $filter) {
+                    // Apply filters based on filter structure
                     switch ($filter['Structure']) {
                         case 'db':
+                            // Identify which table has the column which we're trying to filter by
                             $table_with_column = null;
-                            // ...
+                            if (isset($type['JoinTables'])){
+                                $tables_to_check = $type['JoinTables'];
+                            } else {
+                                $tables_to_check = [];
+                            }
+                            $tables_to_check[] = $type['Table'];
 
-                            $where .= ' AND (';
-                            $where .= "\"{$table_with_column}\".\"{$filter['Column']}\" {$filter['Operator']} :filterValue";
-                            $where .= ')';
+                            foreach ($tables_to_check as $table_to_check){
+                                $column_exists_query = DB::query( "SHOW COLUMNS FROM \"".$table_to_check."\" LIKE '".$filter['Column']."'" );
+
+                                foreach ($column_exists_query as $column){
+                                    $table_with_column = $table_to_check;
+                                }
+                            }
+
+                            // Not anywhere in this type's table joins, so we can't search this particular type
+                            if (!$table_with_column){
+                                continue 2;
+                            }
+
+                            // open our wrapper
+                            $where.= ' AND (';
+
+                            if (is_array($filter['Value'])){
+                                $valuesString = '';
+                                foreach ($filter['Value'] as $value){
+                                    if ($valuesString != ''){
+                                        $valuesString.= ',';
+                                    }
+                                    $valuesString.= "'".$value."'";
+                                }
+                            } else {
+                                $valuesString = $filter['Value'];
+                            }
+
+                            $where.= "\"".$table_with_column."\".\"".$filter['Column']."\" ".$filter['Operator']." '".$valuesString ."'";
+
+                            // close our wrapper
+                            $where.= ')';
+
                             break;
-
                         case 'has_one':
+                            // Identify which table has the column which we're trying to filter by
                             $table_with_column = null;
-                            // ...
+                            if (isset($type['JoinTables'])){
+                                $tables_to_check = $type['JoinTables'];
+                            } else {
+                                $tables_to_check = [];
+                            }
+                            $tables_to_check[] = $type['Table'];
 
-                            $joins .= "LEFT JOIN \"{$filter['Table']}\" ON \"{$filter['Table']}\".\"ID\" = \"{$table_with_column}\".\"{$filter['Column']}\"";
-                            $where .= ' AND (' . "\"{$table_with_column}\".\"{$filter['Column']}\" IN (:filterValue)" . ')';
+                            foreach ($tables_to_check as $table_to_check){
+                                $column_exists_query = DB::query( "SHOW COLUMNS FROM \"".$table_to_check."\" LIKE '".$filter['Column']."'" );
+
+                                foreach ($column_exists_query as $column){
+                                    $table_with_column = $table_to_check;
+                                }
+                            }
+
+                            // Not anywhere in this type's table joins, so we can't search this particular type
+                            if (!$table_with_column){
+                                continue 2;
+                            }
+
+                            // join the relationship table to our record(s)
+                            $joins.= "LEFT JOIN \"".$filter['Table']."\" ON \"".$filter['Table']."\".\"ID\" = \"".$table_with_column."\".\"".$filter['Column']."\"";
+
+                            if (is_array($filter['Value'])){
+                                $ids = '';
+                                foreach ($filter['Value'] as $id){
+                                    if ($ids != ''){
+                                        $ids.= ',';
+                                    }
+                                    $ids.= "'".$id."'";
+                                }
+                            } else {
+                                $ids = $filter['Value'];
+                            }
+                            $where.= ' AND ('."\"".$table_with_column."\".\"".$filter['Column']."\" IN (". $ids .")".')';
                             break;
-
                         case 'many_many':
-                            // ...
+                            // Make sure this type has a relationship to this filter object
+                            if (isset($filter['JoinTables'][$type['Key']])){
 
-                            $filter_join = $filter['JoinTables'][$type['Key']];
-                            $joins .= "LEFT JOIN \"{$filter_join['Table']}\" ON \"{$type['Table']}\".\"ID\" = \"{$filter_join['Column']}\"";
-                            $relations_sql .= "\"{$filter_join['Table']}\".\"{$filter['Table']}ID\" IN (:filterValue)";
+                                $filter_join = $filter['JoinTables'][$type['Key']];
+
+                                $joins.= "LEFT JOIN \"".$filter_join['Table']."\" ON \"".$type['Table']."\".\"ID\" = \"".$filter_join['Column']."\"";
+
+                                if (is_array($filter['Value'])){
+                                    $ids = '';
+                                    foreach ($filter['Value'] as $id){
+                                        if ($ids != ''){
+                                            $ids.= ',';
+                                        }
+                                        $ids.= "'".$id."'";
+                                    }
+                                } else {
+                                    $ids = $filter['Value'];
+                                }
+
+                                $relations_sql.= "\"".$filter_join['Table']."\".\"".$filter['Table']."ID\" IN (". $ids .")";
+                            }
+
                             break;
                     }
                 }
+
+                // Append any required relations SQL
+                if ($relations_sql !== '') {
+                    $where .= ' AND (' . $relations_sql . ')';
+                }
             }
 
+            // Compile our SQL string
             $sql .= $joins . $where;
 
-            // Use a prepared statement for executing the SQL query
-            $queryObj = DB::prepare($sql);
-            $queryObj->bindValue(':query', $query);
-            $queryObj->bindValue(':filterValue', $filterValue); // Set the appropriate value
+            // Execute the query
+            $results = DB::query($sql);
+            $resultIDs = [];
 
-            // Execute the prepared statement
-            $results = $queryObj->execute();
-            $resultIDs = array();
-
+            // Add all the result IDs to our array
             foreach ($results as $result) {
                 if (!isset($resultIDs[$result['ResultObject_ID']])) {
                     $resultIDs[$result['ResultObject_ID']] = $result['ResultObject_ID'];
                 }
             }
 
+            // Convert our SQL results into SilverStripe objects of the appropriate class
             if ($resultIDs) {
                 $resultObjects = $type['ClassName']::get()->filter(['ID' => $resultIDs]);
                 $allResults->merge($resultObjects);
             }
         }
 
+        // Apply sorting
         $sort = self::get_mapped_sort()['Sort'];
         $sort = str_replace("'", "\'", $sort);
         $sort = str_replace('"', '\"', $sort);
         $sort = str_replace('`', '\`', $sort);
         $allResults = $allResults->Sort($sort);
 
+        // Load into a paginated list. To change the items per page, set via the template (e.g., Results.setPageLength(20))
         $paginatedItems = PaginatedList::create($allResults, $this->request);
 
         return $paginatedItems;
     }
+
 }
