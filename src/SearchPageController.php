@@ -23,11 +23,11 @@ class SearchPageController extends PageController {
     public function index($request){
 
         if (Director::isLive()){
-            Requirements::css('/resources/jaedb/search/client/Search.min.css');
-            Requirements::javascript('/resources/jaedb/search/client/Search.min.js');
+            Requirements::css('/_resources/vendor/jaedb/search/client/Search.min.css');
+            Requirements::javascript('/_resources/vendor/jaedb/search/client/Search.min.js');
         } else {
-            Requirements::css('/resources/jaedb/search/client/Search.css');
-            Requirements::javascript('/resources/jaedb/search/client/Search.js');
+            Requirements::css('/_resources/vendor/jaedb/search/client/Search.css');
+            Requirements::javascript('/_resources/vendor/jaedb/search/client/Search.js');
         }
 
         // get the parameters and variables of this request (ie the query and filters)
