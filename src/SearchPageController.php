@@ -4,8 +4,8 @@ namespace Jaedb\Search;
 
 use PageController;
 use SilverStripe\Core\Convert;
-use SilverStripe\ORM\ArrayList;
-use SilverStripe\ORM\PaginatedList;
+use SilverStripe\Model\List\ArrayList;
+use SilverStripe\Model\List\PaginatedList;
 use SilverStripe\ORM\DB;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\View\Requirements;
